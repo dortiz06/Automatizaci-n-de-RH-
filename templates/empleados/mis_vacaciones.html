@@ -1,0 +1,67 @@
+{% extends 'base.html' %}
+
+{% block title %}Mis Vacaciones{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="container">
+    <h1><i class="fas fa-suitcase-rolling me-2"></i>Mis Vacaciones</h1>
+    <p>
+      {% if puede_normal %}
+        Puedes solicitar vacaciones normales.
+      {% else %}
+        Aún no cumples 1 año. Puedes solicitar una <strong>vacación extraordinaria</strong> con justificación.
+      {% endif %}
+    </p>
+  </div>
+  </div>
+
+<div class="container">
+  <div class="text-end mb-3">
+    <a href="{% url 'solicitar_vacaciones' %}" class="btn btn-primary">
+      <i class="fas fa-plus me-1"></i> Solicitar Vacaciones
+    </a>
+  </div>
+
+  <div class="card">
+    <div class="card-header">Mis Solicitudes</div>
+    <div class="card-body">
+      {% if solicitudes %}
+      <div class="table-responsive">
+        <table class="table table-hover">
+          <thead>
+            <tr>
+              <th>Período</th>
+              <th>Días</th>
+              <th>Tipo</th>
+              <th>Etapa</th>
+              <th>Estado</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for s in solicitudes %}
+            <tr>
+              <td>{{ s.fecha_inicio|date:"d/m/Y" }} - {{ s.fecha_fin|date:"d/m/Y" }}</td>
+              <td>{{ s.dias_solicitados }}</td>
+              <td>
+                {% if s.tipo == 'N' %}
+                  <span class="badge bg-success">Normal</span>
+                {% else %}
+                  <span class="badge bg-warning">Extraordinaria</span>
+                {% endif %}
+              </td>
+              <td>{{ s.get_etapa_display }}</td>
+              <td>{{ s.get_estado_display }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+        <p class="text-muted mb-0">Aún no tienes solicitudes.</p>
+      {% endif %}
+    </div>
+  </div>
+ </div>
+{% endblock %}
+

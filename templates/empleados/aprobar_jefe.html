@@ -1,0 +1,36 @@
+{% extends 'base.html' %}
+{% block title %}Aprobación del Jefe{% endblock %}
+{% block content %}
+<div class="page-header"><div class="container"><h1>Aprobar Solicitud (Jefe)</h1></div></div>
+<div class="container">
+  <div class="card mb-3">
+    <div class="card-header">Solicitud</div>
+    <div class="card-body">
+      <p><strong>Empleado:</strong> {{ vacacion.empleado.nombre_completo }} ({{ vacacion.empleado.puesto }})</p>
+      <p><strong>Período:</strong> {{ vacacion.fecha_inicio|date:"d/m/Y" }} - {{ vacacion.fecha_fin|date:"d/m/Y" }} ({{ vacacion.dias_solicitados }} días)</p>
+      <p><strong>Tipo:</strong> {{ vacacion.get_tipo_display }}</p>
+      <p><strong>Motivo:</strong> {{ vacacion.motivo|default:"Sin motivo" }}</p>
+      {% if vacacion.motivo_extraordinario %}<p><strong>Extraordinaria:</strong> {{ vacacion.motivo_extraordinario }}</p>{% endif %}
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-header">Decisión</div>
+    <div class="card-body">
+      <form method="post">{% csrf_token %}
+        <div class="form-check form-switch mb-3">
+          {{ form.aprobar }} <label class="form-check-label ms-2">Aprobar</label>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Comentario</label>
+          {{ form.comentario }}
+        </div>
+        <div class="text-end">
+          <a href="{% url 'vacaciones' %}" class="btn btn-outline-secondary">Cancelar</a>
+          <button class="btn btn-primary" type="submit">Guardar decisión</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
+

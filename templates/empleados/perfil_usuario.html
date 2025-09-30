@@ -1,0 +1,288 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Mi Perfil - Sistema RH{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="page-header">
+        <div class="container">
+            <h1><i class="fas fa-user-circle me-3"></i>Mi Perfil</h1>
+            <p>Gestiona tu información personal y laboral</p>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="row">
+            <!-- Información del Usuario -->
+            <div class="col-lg-8">
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0">
+                            <i class="fas fa-user me-2"></i>
+                            Información de Usuario
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label fw-bold">Nombre de Usuario</label>
+                                    <p class="form-control-plaintext">{{ user.username }}</p>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label fw-bold">Nombre Completo</label>
+                                    <p class="form-control-plaintext">{{ user.first_name }} {{ user.last_name }}</p>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label fw-bold">Correo Electrónico</label>
+                                    <p class="form-control-plaintext">{{ user.email }}</p>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label fw-bold">Último Acceso</label>
+                                    <p class="form-control-plaintext">
+                                        {% if user.last_login %}
+                                            {{ user.last_login|date:"d/m/Y H:i" }}
+                                        {% else %}
+                                            <span class="text-muted">Nunca</span>
+                                        {% endif %}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Información de Empleado -->
+                {% if tiene_perfil %}
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0">
+                            <i class="fas fa-briefcase me-2"></i>
+                            Información Laboral
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label fw-bold">Número de Empleado</label>
+                                    <p class="form-control-plaintext">{{ empleado.numero_empleado }}</p>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label fw-bold">Departamento</label>
+                                    <p class="form-control-plaintext">{{ empleado.departamento.nombre }}</p>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label fw-bold">Puesto</label>
+                                    <p class="form-control-plaintext">{{ empleado.puesto }}</p>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label fw-bold">Fecha de Ingreso</label>
+                                    <p class="form-control-plaintext">{{ empleado.fecha_ingreso|date:"d/m/Y" }}</p>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label fw-bold">Antigüedad</label>
+                                    <p class="form-control-plaintext">
+                                        <span class="badge bg-primary fs-6">{{ empleado.antiguedad_anos }} años</span>
+                                    </p>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label fw-bold">Salario</label>
+                                    <p class="form-control-plaintext">${{ empleado.salario|floatformat:2 }}</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Información de Vacaciones -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0">
+                            <i class="fas fa-calendar-alt me-2"></i>
+                            Información de Vacaciones
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-4">
+                                <div class="text-center">
+                                    <div class="stats-number text-primary">{{ empleado.dias_vacaciones_anuales }}</div>
+                                    <div class="stats-label">Días Anuales</div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="text-center">
+                                    <div class="stats-number text-warning">{{ empleado.dias_vacaciones_usados }}</div>
+                                    <div class="stats-label">Días Usados</div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="text-center">
+                                    <div class="stats-number text-success">{{ empleado.dias_vacaciones_disponibles }}</div>
+                                    <div class="stats-label">Días Disponibles</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="text-center mt-3">
+                            <a href="{% url 'mis_vacaciones' %}" class="btn btn-primary">
+                                <i class="fas fa-calendar-check me-1"></i>Gestionar Vacaciones
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                {% else %}
+                <div class="card mb-4">
+                    <div class="card-body text-center py-5">
+                        <i class="fas fa-user-slash fa-3x text-muted mb-3"></i>
+                        <h5>Sin Perfil de Empleado</h5>
+                        <p class="text-muted">No tienes un perfil de empleado asociado a tu cuenta.</p>
+                        <p class="text-muted">Contacta al administrador para crear tu perfil.</p>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Sidebar -->
+            <div class="col-lg-4">
+                <!-- Roles y Permisos -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h6 class="mb-0">
+                            <i class="fas fa-user-tag me-2"></i>
+                            Roles y Permisos
+                        </h6>
+                    </div>
+                    <div class="card-body">
+                        {% if grupos %}
+                            {% for grupo in grupos %}
+                                <span class="badge bg-primary me-1 mb-2">{{ grupo.name }}</span>
+                            {% endfor %}
+                        {% else %}
+                            <span class="text-muted">Sin roles asignados</span>
+                        {% endif %}
+                        
+                        <hr>
+                        
+                        <div class="d-grid gap-2">
+                            {% if es_rh %}
+                                <a href="{% url 'gestion_usuarios' %}" class="btn btn-outline-primary btn-sm">
+                                    <i class="fas fa-users-cog me-1"></i>Gestionar Usuarios
+                                </a>
+                            {% endif %}
+                            
+                            {% if es_jefe %}
+                                <a href="{% url 'panel_jefe' %}" class="btn btn-outline-success btn-sm">
+                                    <i class="fas fa-user-tie me-1"></i>Panel de Jefe
+                                </a>
+                            {% endif %}
+                            
+                            {% if es_empleado %}
+                                <a href="{% url 'mis_vacaciones' %}" class="btn btn-outline-info btn-sm">
+                                    <i class="fas fa-calendar-check me-1"></i>Mis Vacaciones
+                                </a>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Acciones Rápidas -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h6 class="mb-0">
+                            <i class="fas fa-bolt me-2"></i>
+                            Acciones Rápidas
+                        </h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="d-grid gap-2">
+                            <a href="{% url 'index' %}" class="btn btn-outline-secondary btn-sm">
+                                <i class="fas fa-home me-1"></i>Inicio
+                            </a>
+                            <a href="{% url 'lista_empleados' %}" class="btn btn-outline-secondary btn-sm">
+                                <i class="fas fa-users me-1"></i>Ver Empleados
+                            </a>
+                            <a href="{% url 'vacaciones' %}" class="btn btn-outline-secondary btn-sm">
+                                <i class="fas fa-calendar-alt me-1"></i>Ver Vacaciones
+                            </a>
+                            {% if user.is_staff %}
+                                <a href="/admin/" class="btn btn-outline-warning btn-sm">
+                                    <i class="fas fa-cog me-1"></i>Panel Admin
+                                </a>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Información del Sistema -->
+                <div class="card">
+                    <div class="card-header">
+                        <h6 class="mb-0">
+                            <i class="fas fa-info-circle me-2"></i>
+                            Información del Sistema
+                        </h6>
+                    </div>
+                    <div class="card-body">
+                        <small class="text-muted">
+                            <strong>Usuario ID:</strong> {{ user.id }}<br>
+                            <strong>Miembro desde:</strong> {{ user.date_joined|date:"d/m/Y" }}<br>
+                            <strong>Estado:</strong> 
+                            {% if user.is_active %}
+                                <span class="text-success">Activo</span>
+                            {% else %}
+                                <span class="text-danger">Inactivo</span>
+                            {% endif %}
+                            {% if user.is_staff %}
+                                <br><span class="text-info">Staff</span>
+                            {% endif %}
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.stats-number {
+    font-size: 2rem;
+    font-weight: bold;
+    margin-bottom: 0.5rem;
+}
+
+.stats-label {
+    font-size: 0.9rem;
+    opacity: 0.8;
+}
+
+.card {
+    border-radius: 15px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+}
+
+.card-header {
+    background: linear-gradient(135deg, var(--primary-color), var(--accent-color));
+    color: white;
+    border-radius: 15px 15px 0 0 !important;
+    font-weight: 600;
+}
+
+.form-control-plaintext {
+    background: #f8f9fa;
+    padding: 0.5rem 0.75rem;
+    border-radius: 8px;
+    border: 1px solid #e9ecef;
+}
+
+.badge {
+    font-size: 0.8rem;
+    padding: 0.5em 0.75em;
+}
+</style>
+{% endblock %}
