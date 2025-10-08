@@ -1,405 +1,454 @@
 from django.shortcuts import render, get_object_or_404, redirect
-from django.contrib.auth.decorators import login_required, permission_required
+from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User, Group
 from django.contrib import messages
 from django.db.models import Q, Count
 from django.http import JsonResponse
-from .models import Empleado, Vacacion, Departamento
+from django.core.exceptions import PermissionDenied
+from django.utils import timezone
+from .models import Perfil, Departamento, SolicitudVacaciones, ConfiguracionSistema
+from .forms import (
+    UsuarioConPerfilForm, SolicitudVacacionesForm, 
+    AprobacionJefeForm, AprobacionRHForm, EditarPerfilForm, ConfigurarDepartamentoForm
+)
 from datetime import date, timedelta
-from .forms import SolicitudVacacionForm, AprobacionJefeForm, AprobacionRHForm, CrearUsuarioForm
 
 
-@login_required
-def index(request):
-    """Página principal del sistema de RH - Redirige según rol"""
-    # Verificar si tiene perfil de empleado
+def get_user_profile(user):
+    """Obtener perfil del usuario actual"""
     try:
-        empleado = Empleado.objects.get(user=request.user)
-        tiene_perfil = True
-    except Empleado.DoesNotExist:
-        empleado = None
-        tiene_perfil = False
-    
-    # Redirigir según el rol
-    if request.user.groups.filter(name='RH').exists():
-        return redirect('gestion_usuarios')
-    elif request.user.groups.filter(name='JEFES').exists():
-        return redirect('panel_jefe')
-    elif request.user.groups.filter(name='EMPLEADOS').exists():
-        return redirect('mis_vacaciones')
-    else:
-        # Usuario sin rol específico - mostrar dashboard básico
-        context = {
-            'tiene_perfil': tiene_perfil,
-            'empleado': empleado,
-        }
-        return render(request, 'empleados/index.html', context)
+        return user.perfil
+    except Perfil.DoesNotExist:
+        return None
 
 
 @login_required
-@permission_required('empleados.view_empleado', raise_exception=True)
-def lista_empleados(request):
-    """Lista todos los empleados con filtros - Solo RH"""
-    empleados = Empleado.objects.filter(activo=True)
-    departamentos = Departamento.objects.all()
+def dashboard(request):
+    """Dashboard principal redirigido según tipo de perfil"""
+    perfil = get_user_profile(request.user)
     
-    # Filtros
-    departamento_id = request.GET.get('departamento')
-    busqueda = request.GET.get('busqueda')
+    if not perfil:
+        messages.error(request, 'No tienes un perfil asignado. Contacta al administrador.')
+        return redirect('logout')
     
-    if departamento_id:
-        empleados = empleados.filter(departamento_id=departamento_id)
+    # Redirigir según tipo de perfil
+    if perfil.es_admin():
+        return redirect('admin_dashboard')
+    elif perfil.es_rh():
+        return redirect('rh_dashboard')
+    elif perfil.es_jefe_area():
+        return redirect('jefe_dashboard')
+    else:
+        return redirect('empleado_dashboard')
+
+
+@login_required
+def admin_dashboard(request):
+    """Dashboard para administradores"""
+    perfil = get_user_profile(request.user)
+    if not perfil or not perfil.es_admin():
+        raise PermissionDenied
     
-    if busqueda:
-        empleados = empleados.filter(
-            Q(nombre__icontains=busqueda) |
-            Q(apellido_paterno__icontains=busqueda) |
-            Q(apellido_materno__icontains=busqueda) |
-            Q(numero_empleado__icontains=busqueda)
-        )
-    
-    # Ordenamiento
-    orden = request.GET.get('orden', 'apellido_paterno')
-    empleados = empleados.order_by(orden)
-    
-    context = {
-        'empleados': empleados,
-        'departamentos': departamentos,
-        'departamento_actual': int(departamento_id) if departamento_id else None,
-        'busqueda_actual': busqueda,
-        'orden_actual': orden,
+    # Estadísticas generales
+    stats = {
+        'total_empleados': Perfil.objects.filter(activo=True).count(),
+        'total_departamentos': Departamento.objects.filter(activo=True).count(),
+        'solicitudes_pendientes': SolicitudVacaciones.objects.filter(
+            estado__in=['PENDIENTE_JEFE', 'PENDIENTE_RH']
+        ).count(),
+        'solicitudes_este_mes': SolicitudVacaciones.objects.filter(
+            fecha_solicitud__month=timezone.now().month
+        ).count(),
     }
     
-    return render(request, 'empleados/lista_empleados.html', context)
-
-
-def detalle_empleado(request, empleado_id):
-    """Detalle completo de un empleado"""
-    empleado = get_object_or_404(Empleado, id=empleado_id)
-    vacaciones = Vacacion.objects.filter(empleado=empleado).order_by('-fecha_solicitud')
-    
-    # Estadísticas de vacaciones
-    vacaciones_aprobadas = vacaciones.filter(estado='A').count()
-    vacaciones_pendientes = vacaciones.filter(estado='P').count()
-    vacaciones_rechazadas = vacaciones.filter(estado='R').count()
+    # Solicitudes recientes
+    solicitudes_recientes = SolicitudVacaciones.objects.filter(
+        estado__in=['PENDIENTE_JEFE', 'PENDIENTE_RH']
+    ).order_by('-fecha_solicitud')[:10]
     
     context = {
-        'empleado': empleado,
-        'vacaciones': vacaciones,
-        'vacaciones_aprobadas': vacaciones_aprobadas,
-        'vacaciones_pendientes': vacaciones_pendientes,
-        'vacaciones_rechazadas': vacaciones_rechazadas,
+        'stats': stats,
+        'solicitudes_recientes': solicitudes_recientes,
+        'perfil': perfil,
     }
-    
-    return render(request, 'empleados/detalle_empleado.html', context)
+    return render(request, 'empleados/admin/dashboard.html', context)
 
 
 @login_required
-@permission_required('empleados.view_vacacion', raise_exception=True)
-def vacaciones(request):
-    """Lista todas las vacaciones con filtros - Solo RH"""
-    vacaciones = Vacacion.objects.all()
+def rh_dashboard(request):
+    """Dashboard para Recursos Humanos"""
+    perfil = get_user_profile(request.user)
+    if not perfil or not perfil.es_rh():
+        raise PermissionDenied
     
-    # Filtros
-    estado = request.GET.get('estado')
-    departamento_id = request.GET.get('departamento')
-    busqueda = request.GET.get('busqueda')
-    
-    if estado:
-        vacaciones = vacaciones.filter(estado=estado)
-    
-    if departamento_id:
-        vacaciones = vacaciones.filter(empleado__departamento_id=departamento_id)
-    
-    if busqueda:
-        vacaciones = vacaciones.filter(
-            Q(empleado__nombre__icontains=busqueda) |
-            Q(empleado__apellido_paterno__icontains=busqueda) |
-            Q(empleado__apellido_materno__icontains=busqueda)
-        )
-    
-    # Ordenamiento
-    orden = request.GET.get('orden', '-fecha_solicitud')
-    vacaciones = vacaciones.order_by(orden)
-    
-    departamentos = Departamento.objects.all()
-    
-    context = {
-        'vacaciones': vacaciones,
-        'departamentos': departamentos,
-        'estado_actual': estado,
-        'departamento_actual': int(departamento_id) if departamento_id else None,
-        'busqueda_actual': busqueda,
-        'orden_actual': orden,
-    }
-    
-    return render(request, 'empleados/vacaciones.html', context)
-
-
-# --- Flujo de auto-servicio de empleado ---
-@login_required
-def mis_vacaciones(request):
-    empleado = get_object_or_404(Empleado, user=request.user)
-    solicitudes = Vacacion.objects.filter(empleado=empleado).order_by('-fecha_solicitud')
-    puede_normal = empleado.antiguedad_anos >= 1
-    return render(request, 'empleados/mis_vacaciones.html', {
-        'empleado': empleado,
-        'solicitudes': solicitudes,
-        'puede_normal': puede_normal,
-    })
-
-
-@login_required
-def solicitar_vacaciones(request):
-    empleado = get_object_or_404(Empleado, user=request.user)
-    if request.method == 'POST':
-        form = SolicitudVacacionForm(request.POST)
-        if form.is_valid():
-            vac = form.save(commit=False)
-            vac.empleado = empleado
-            vac.etapa = 'JEF' if empleado.supervisor else 'RH'
-            vac.save()
-            return redirect('mis_vacaciones')
-    else:
-        form = SolicitudVacacionForm()
-    return render(request, 'empleados/solicitar_vacaciones.html', {
-        'form': form,
-        'empleado': empleado,
-    })
-
-
-# --- Aprobación por Jefe Directo ---
-@login_required
-def aprobar_jefe(request, vacacion_id):
-    vac = get_object_or_404(Vacacion, id=vacacion_id)
-    # Solo el supervisor asignado puede aprobar
-    empleado_actual = get_object_or_404(Empleado, user=request.user)
-    if vac.empleado.supervisor_id != empleado_actual.id:
-        return redirect('index')
-    if request.method == 'POST':
-        form = AprobacionJefeForm(request.POST)
-        if form.is_valid():
-            vac.marcar_aprobacion_jefe(form.cleaned_data['aprobar'], form.cleaned_data.get('comentario') or '')
-            return redirect('vacaciones')
-    else:
-        form = AprobacionJefeForm(initial={'aprobar': True})
-    return render(request, 'empleados/aprobar_jefe.html', {'vacacion': vac, 'form': form})
-
-
-# --- Aprobación RH ---
-@login_required
-@permission_required('empleados.change_vacacion', raise_exception=True)
-def aprobar_rh(request, vacacion_id):
-    vac = get_object_or_404(Vacacion, id=vacacion_id)
-    if request.method == 'POST':
-        form = AprobacionRHForm(request.POST)
-        if form.is_valid():
-            vac.marcar_aprobacion_rh(form.cleaned_data['aprobar'], form.cleaned_data.get('comentario') or '')
-            return redirect('vacaciones')
-    else:
-        form = AprobacionRHForm(initial={'aprobar': True})
-    return render(request, 'empleados/aprobar_rh.html', {'vacacion': vac, 'form': form})
-
-
-# --- Vistas para Jefes de Área ---
-@login_required
-def panel_jefe(request):
-    """Panel principal para jefes de área"""
-    try:
-        empleado_actual = get_object_or_404(Empleado, user=request.user)
-    except:
-        messages.error(request, 'No tienes un perfil de empleado asociado.')
-        return redirect('index')
-    
-    # Obtener empleados bajo su supervisión
-    empleados_supervisados = Empleado.objects.filter(supervisor=empleado_actual, activo=True)
-    
-    # Solicitudes pendientes de aprobación
-    solicitudes_pendientes = Vacacion.objects.filter(
-        empleado__supervisor=empleado_actual,
-        etapa='JEF',
-        estado='P'
+    # Solicitudes pendientes de RH
+    solicitudes_pendientes = SolicitudVacaciones.objects.filter(
+        estado='PENDIENTE_RH'
     ).order_by('-fecha_solicitud')
     
     # Estadísticas
-    total_empleados = empleados_supervisados.count()
-    solicitudes_pendientes_count = solicitudes_pendientes.count()
-    
-    # Próximas vacaciones aprobadas de sus empleados
-    proximas_vacaciones = Vacacion.objects.filter(
-        empleado__supervisor=empleado_actual,
-        estado='A',
-        fecha_inicio__gte=date.today()
-    ).order_by('fecha_inicio')[:5]
-    
-    context = {
-        'empleado_actual': empleado_actual,
-        'empleados_supervisados': empleados_supervisados,
-        'solicitudes_pendientes': solicitudes_pendientes,
-        'total_empleados': total_empleados,
-        'solicitudes_pendientes_count': solicitudes_pendientes_count,
-        'proximas_vacaciones': proximas_vacaciones,
+    stats = {
+        'solicitudes_pendientes': solicitudes_pendientes.count(),
+        'aprobadas_este_mes': SolicitudVacaciones.objects.filter(
+            estado='APROBADO_RH',
+            fecha_aprobacion_rh__month=timezone.now().month
+        ).count(),
+        'rechazadas_este_mes': SolicitudVacaciones.objects.filter(
+            estado='RECHAZADO_RH',
+            fecha_aprobacion_rh__month=timezone.now().month
+        ).count(),
     }
     
-    return render(request, 'empleados/panel_jefe.html', context)
+    context = {
+        'solicitudes_pendientes': solicitudes_pendientes,
+        'stats': stats,
+        'perfil': perfil,
+    }
+    return render(request, 'empleados/rh/dashboard.html', context)
 
 
 @login_required
-def solicitudes_jefe(request):
-    """Lista de solicitudes para aprobación del jefe"""
-    try:
-        empleado_actual = get_object_or_404(Empleado, user=request.user)
-    except:
-        messages.error(request, 'No tienes un perfil de empleado asociado.')
-        return redirect('index')
+def jefe_dashboard(request):
+    """Dashboard para Jefes de Área"""
+    perfil = get_user_profile(request.user)
+    if not perfil or not perfil.es_jefe_area():
+        raise PermissionDenied
     
-    # Filtros
-    estado = request.GET.get('estado', 'P')
-    busqueda = request.GET.get('busqueda')
+    # Solicitudes de empleados del departamento
+    solicitudes_pendientes = SolicitudVacaciones.objects.filter(
+        empleado__departamento=perfil.departamento,
+        estado='PENDIENTE_JEFE'
+    ).order_by('-fecha_solicitud')
     
-    solicitudes = Vacacion.objects.filter(
-        empleado__supervisor=empleado_actual,
-        etapa='JEF'
+    # Estadísticas del departamento
+    empleados_departamento = Perfil.objects.filter(
+        departamento=perfil.departamento,
+        activo=True
     )
     
-    if estado:
-        solicitudes = solicitudes.filter(estado=estado)
+    stats = {
+        'empleados_departamento': empleados_departamento.count(),
+        'solicitudes_pendientes': solicitudes_pendientes.count(),
+        'aprobadas_este_mes': SolicitudVacaciones.objects.filter(
+            empleado__departamento=perfil.departamento,
+            estado='APROBADO_JEFE',
+            fecha_aprobacion_jefe__month=timezone.now().month
+        ).count(),
+    }
     
-    if busqueda:
-        solicitudes = solicitudes.filter(
-            Q(empleado__nombre__icontains=busqueda) |
-            Q(empleado__apellido_paterno__icontains=busqueda) |
-            Q(empleado__apellido_materno__icontains=busqueda)
-        )
+    context = {
+        'solicitudes_pendientes': solicitudes_pendientes,
+        'stats': stats,
+        'perfil': perfil,
+        'empleados_departamento': empleados_departamento,
+    }
+    return render(request, 'empleados/jefe/dashboard.html', context)
+
+
+@login_required
+def empleado_dashboard(request):
+    """Dashboard para Empleados"""
+    perfil = get_user_profile(request.user)
+    if not perfil or not perfil.es_empleado():
+        raise PermissionDenied
     
-    solicitudes = solicitudes.order_by('-fecha_solicitud')
+    # Solicitudes del empleado
+    solicitudes = SolicitudVacaciones.objects.filter(
+        empleado=perfil
+    ).order_by('-fecha_solicitud')
+    
+    # Estadísticas personales
+    stats = {
+        'dias_disponibles': perfil.dias_vacaciones_disponibles,
+        'dias_usados': perfil.dias_vacaciones_usados,
+        'solicitudes_pendientes': solicitudes.filter(
+            estado__in=['PENDIENTE_JEFE', 'PENDIENTE_RH']
+        ).count(),
+        'solicitudes_aprobadas': solicitudes.filter(estado='APROBADO_RH').count(),
+    }
     
     context = {
         'solicitudes': solicitudes,
-        'estado_actual': estado,
-        'busqueda_actual': busqueda,
+        'stats': stats,
+        'perfil': perfil,
     }
-    
-    return render(request, 'empleados/solicitudes_jefe.html', context)
+    return render(request, 'empleados/empleado/dashboard.html', context)
 
 
-# --- Gestión de Usuarios y Roles ---
+# === GESTIÓN DE USUARIOS ===
+
 @login_required
-@permission_required('auth.add_user', raise_exception=True)
 def gestion_usuarios(request):
-    """Panel de gestión de usuarios y roles"""
-    usuarios = User.objects.all().select_related('empleado')
-    grupos = Group.objects.all()
+    """Gestión de usuarios - Solo RH y Admin"""
+    perfil = get_user_profile(request.user)
+    if not perfil or not (perfil.es_rh() or perfil.es_admin()):
+        raise PermissionDenied
+    
+    usuarios = Perfil.objects.filter(activo=True)
     
     # Filtros
-    grupo_id = request.GET.get('grupo')
+    tipo_perfil = request.GET.get('tipo_perfil')
+    departamento_id = request.GET.get('departamento')
     busqueda = request.GET.get('busqueda')
     
-    if grupo_id:
-        usuarios = usuarios.filter(groups__id=grupo_id)
+    if tipo_perfil:
+        usuarios = usuarios.filter(tipo_perfil=tipo_perfil)
+    
+    if departamento_id:
+        usuarios = usuarios.filter(departamento_id=departamento_id)
     
     if busqueda:
         usuarios = usuarios.filter(
-            Q(username__icontains=busqueda) |
-            Q(first_name__icontains=busqueda) |
-            Q(last_name__icontains=busqueda) |
-            Q(email__icontains=busqueda)
+            Q(usuario__username__icontains=busqueda) |
+            Q(usuario__first_name__icontains=busqueda) |
+            Q(usuario__last_name__icontains=busqueda) |
+            Q(numero_empleado__icontains=busqueda)
         )
+    
+    departamentos = Departamento.objects.filter(activo=True)
     
     context = {
         'usuarios': usuarios,
-        'grupos': grupos,
-        'grupo_actual': int(grupo_id) if grupo_id else None,
+        'departamentos': departamentos,
+        'tipo_actual': tipo_perfil,
+        'departamento_actual': departamento_id,
         'busqueda_actual': busqueda,
+        'perfil': perfil,
     }
-    
-    return render(request, 'empleados/gestion_usuarios.html', context)
+    return render(request, 'empleados/rh/gestion_usuarios.html', context)
 
 
 @login_required
-@permission_required('auth.add_user', raise_exception=True)
 def crear_usuario(request):
-    """Crear nuevo usuario con rol"""
+    """Crear nuevo usuario con perfil"""
+    perfil = get_user_profile(request.user)
+    if not perfil or not (perfil.es_rh() or perfil.es_admin()):
+        raise PermissionDenied
+    
     if request.method == 'POST':
-        form = CrearUsuarioForm(request.POST)
+        form = UsuarioConPerfilForm(request.POST)
         if form.is_valid():
             user = form.save()
-            
-            # Asignar grupo según el rol seleccionado
-            rol = form.cleaned_data['rol']
-            if rol:
-                grupo = Group.objects.get(name=rol)
-                user.groups.add(grupo)
-            
-            # Crear perfil de empleado si se proporciona información
-            if form.cleaned_data.get('crear_empleado'):
-                empleado = Empleado.objects.create(
-                    user=user,
-                    numero_empleado=form.cleaned_data['numero_empleado'],
-                    nombre=form.cleaned_data['nombre'],
-                    apellido_paterno=form.cleaned_data['apellido_paterno'],
-                    apellido_materno=form.cleaned_data['apellido_materno'],
-                    departamento=form.cleaned_data['departamento'],
-                    puesto=form.cleaned_data['puesto'],
-                    fecha_ingreso=form.cleaned_data['fecha_ingreso'],
-                    salario=form.cleaned_data['salario'],
-                    supervisor=form.cleaned_data.get('supervisor'),
-                    email=user.email,
-                )
-            
             messages.success(request, f'Usuario {user.username} creado exitosamente.')
             return redirect('gestion_usuarios')
     else:
-        form = CrearUsuarioForm()
-    
-    return render(request, 'empleados/crear_usuario.html', {'form': form})
-
-
-@login_required
-@permission_required('auth.change_user', raise_exception=True)
-def asignar_rol(request, user_id):
-    """Asignar o cambiar rol de usuario"""
-    user = get_object_or_404(User, id=user_id)
-    
-    if request.method == 'POST':
-        rol = request.POST.get('rol')
-        if rol:
-            # Limpiar grupos existentes
-            user.groups.clear()
-            # Asignar nuevo grupo
-            grupo = Group.objects.get(name=rol)
-            user.groups.add(grupo)
-            messages.success(request, f'Rol asignado exitosamente a {user.username}.')
-        else:
-            user.groups.clear()
-            messages.success(request, f'Roles removidos de {user.username}.')
-        
-        return redirect('gestion_usuarios')
-    
-    grupos_actuales = user.groups.all()
-    todos_grupos = Group.objects.all()
+        form = UsuarioConPerfilForm()
     
     context = {
-        'user': user,
-        'grupos_actuales': grupos_actuales,
-        'todos_grupos': todos_grupos,
+        'form': form,
+        'perfil': perfil,
     }
+    return render(request, 'empleados/rh/crear_usuario.html', context)
+
+
+@login_required
+def editar_perfil(request, perfil_id):
+    """Editar perfil de usuario"""
+    perfil = get_user_profile(request.user)
+    perfil_editado = get_object_or_404(Perfil, id=perfil_id)
     
-    return render(request, 'empleados/asignar_rol.html', context)
+    # Verificar permisos
+    if not (perfil.es_rh() or perfil.es_admin() or perfil == perfil_editado):
+        raise PermissionDenied
+    
+    if request.method == 'POST':
+        form = EditarPerfilForm(request.POST, instance=perfil_editado)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Perfil actualizado exitosamente.')
+            return redirect('gestion_usuarios')
+    else:
+        form = EditarPerfilForm(instance=perfil_editado)
+    
+    context = {
+        'form': form,
+        'perfil_editado': perfil_editado,
+        'perfil': perfil,
+    }
+    return render(request, 'empleados/rh/editar_perfil.html', context)
 
 
-# --- API para validaciones AJAX ---
+# === GESTIÓN DE VACACIONES ===
+
+@login_required
+def solicitar_vacaciones(request):
+    """Solicitar vacaciones - Solo empleados"""
+    perfil = get_user_profile(request.user)
+    if not perfil or not perfil.es_empleado():
+        raise PermissionDenied
+    
+    if request.method == 'POST':
+        form = SolicitudVacacionesForm(request.POST, empleado=perfil)
+        if form.is_valid():
+            solicitud = form.save(commit=False)
+            solicitud.empleado = perfil
+            solicitud.save()
+            messages.success(request, 'Solicitud de vacaciones enviada exitosamente.')
+            return redirect('empleado_dashboard')
+    else:
+        form = SolicitudVacacionesForm(empleado=perfil)
+    
+    context = {
+        'form': form,
+        'perfil': perfil,
+    }
+    return render(request, 'empleados/empleado/solicitar_vacaciones.html', context)
+
+
+@login_required
+def aprobar_jefe(request, solicitud_id):
+    """Aprobar/rechazar solicitud por jefe de área"""
+    perfil = get_user_profile(request.user)
+    if not perfil or not perfil.es_jefe_area():
+        raise PermissionDenied
+    
+    solicitud = get_object_or_404(SolicitudVacaciones, id=solicitud_id)
+    
+    # Verificar que el empleado pertenece al departamento del jefe
+    if solicitud.empleado.departamento != perfil.departamento:
+        raise PermissionDenied
+    
+    if request.method == 'POST':
+        form = AprobacionJefeForm(request.POST, solicitud=solicitud)
+        if form.is_valid():
+            accion = form.cleaned_data['accion']
+            comentario = form.cleaned_data['comentario']
+            
+            if accion == 'aprobar':
+                if solicitud.aprobar_por_jefe(perfil, comentario):
+                    messages.success(request, 'Solicitud aprobada exitosamente.')
+                else:
+                    messages.error(request, 'No se pudo aprobar la solicitud.')
+            else:
+                if solicitud.rechazar_por_jefe(perfil, comentario):
+                    messages.success(request, 'Solicitud rechazada.')
+                else:
+                    messages.error(request, 'No se pudo rechazar la solicitud.')
+            
+            return redirect('jefe_dashboard')
+    else:
+        form = AprobacionJefeForm(solicitud=solicitud)
+    
+    context = {
+        'form': form,
+        'solicitud': solicitud,
+        'perfil': perfil,
+    }
+    return render(request, 'empleados/jefe/aprobar_solicitud.html', context)
+
+
+@login_required
+def aprobar_rh(request, solicitud_id):
+    """Aprobar/rechazar solicitud por RH"""
+    perfil = get_user_profile(request.user)
+    if not perfil or not perfil.es_rh():
+        raise PermissionDenied
+    
+    solicitud = get_object_or_404(SolicitudVacaciones, id=solicitud_id)
+    
+    if request.method == 'POST':
+        form = AprobacionRHForm(request.POST, solicitud=solicitud)
+        if form.is_valid():
+            accion = form.cleaned_data['accion']
+            comentario = form.cleaned_data['comentario']
+            
+            if accion == 'aprobar':
+                if solicitud.aprobar_por_rh(perfil, comentario):
+                    messages.success(request, 'Solicitud aprobada exitosamente.')
+                else:
+                    messages.error(request, 'No se pudo aprobar la solicitud.')
+            else:
+                if solicitud.rechazar_por_rh(perfil, comentario):
+                    messages.success(request, 'Solicitud rechazada.')
+                else:
+                    messages.error(request, 'No se pudo rechazar la solicitud.')
+            
+            return redirect('rh_dashboard')
+    else:
+        form = AprobacionRHForm(solicitud=solicitud)
+    
+    context = {
+        'form': form,
+        'solicitud': solicitud,
+        'perfil': perfil,
+    }
+    return render(request, 'empleados/rh/aprobar_solicitud.html', context)
+
+
+# === GESTIÓN DE DEPARTAMENTOS ===
+
+@login_required
+def gestion_departamentos(request):
+    """Gestión de departamentos - Solo RH y Admin"""
+    perfil = get_user_profile(request.user)
+    if not perfil or not (perfil.es_rh() or perfil.es_admin()):
+        raise PermissionDenied
+    
+    departamentos = Departamento.objects.filter(activo=True).annotate(
+        empleados_count=Count('perfil')
+    )
+    
+    context = {
+        'departamentos': departamentos,
+        'perfil': perfil,
+    }
+    return render(request, 'empleados/rh/gestion_departamentos.html', context)
+
+
+@login_required
+def crear_departamento(request):
+    """Crear nuevo departamento"""
+    perfil = get_user_profile(request.user)
+    if not perfil or not (perfil.es_rh() or perfil.es_admin()):
+        raise PermissionDenied
+    
+    if request.method == 'POST':
+        form = ConfigurarDepartamentoForm(request.POST)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Departamento creado exitosamente.')
+            return redirect('gestion_departamentos')
+    else:
+        form = ConfigurarDepartamentoForm()
+    
+    context = {
+        'form': form,
+        'perfil': perfil,
+    }
+    return render(request, 'empleados/rh/crear_departamento.html', context)
+
+
+# === API ENDPOINTS ===
+
 @login_required
 def validar_antiguedad(request):
-    """Validar si empleado puede solicitar vacaciones normales"""
-    empleado_id = request.GET.get('empleado_id')
-    try:
-        empleado = Empleado.objects.get(id=empleado_id)
-        puede_normal = empleado.antiguedad_anos >= 1
-        return JsonResponse({
-            'puede_normal': puede_normal,
-            'antiguedad': empleado.antiguedad_anos,
-            'dias_disponibles': empleado.dias_vacaciones_disponibles
-        })
-    except Empleado.DoesNotExist:
-        return JsonResponse({'error': 'Empleado no encontrado'}, status=404)
+    """API para validar antigüedad de empleado"""
+    perfil = get_user_profile(request.user)
+    if not perfil:
+        return JsonResponse({'error': 'Perfil no encontrado'}, status=400)
+    
+    antiguedad = perfil.antiguedad_anos
+    puede_vacaciones_normales = antiguedad >= 1
+    
+    return JsonResponse({
+        'antiguedad_anos': antiguedad,
+        'puede_vacaciones_normales': puede_vacaciones_normales,
+        'dias_disponibles': perfil.dias_vacaciones_disponibles,
+    })
+
+
+# === VISTAS DE ERROR ===
+
+def error_403(request, exception=None):
+    """Página de error 403 - Permisos insuficientes"""
+    return render(request, 'empleados/errors/403.html', status=403)
+
+
+def error_404(request, exception=None):
+    """Página de error 404 - Página no encontrada"""
+    return render(request, 'empleados/errors/404.html', status=404)
+
+
+def error_500(request):
+    """Página de error 500 - Error interno del servidor"""
+    return render(request, 'empleados/errors/500.html', status=500)

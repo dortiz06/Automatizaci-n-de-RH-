@@ -2,100 +2,114 @@ from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
 from django.contrib.auth.models import User
 from django.utils.html import format_html
-from .models import Empleado, Vacacion, Departamento
+from .models import Perfil, SolicitudVacaciones, Departamento
 
 
-class EmpleadoInline(admin.StackedInline):
-    model = Empleado
+class PerfilInline(admin.StackedInline):
+    model = Perfil
     can_delete = False
-    verbose_name_plural = 'Perfil de Empleado'
-    fields = ('numero_empleado', 'departamento', 'puesto', 'supervisor', 'activo')
+    verbose_name_plural = 'Perfil'
+    fields = ('tipo_perfil', 'departamento', 'numero_empleado', 'puesto', 'fecha_contratacion', 'salario', 'supervisor', 'activo')
 
 
 class CustomUserAdmin(UserAdmin):
-    inlines = (EmpleadoInline,)
-    list_display = ('username', 'email', 'first_name', 'last_name', 'is_staff', 'get_empleado_info')
+    inlines = (PerfilInline,)
+    list_display = ('username', 'email', 'first_name', 'last_name', 'is_staff', 'get_tipo_perfil', 'get_departamento')
+    list_filter = ('is_staff', 'is_superuser', 'is_active', 'perfil__tipo_perfil', 'perfil__departamento')
     
-    def get_empleado_info(self, obj):
+    def get_tipo_perfil(self, obj):
         try:
-            empleado = obj.empleado
-            return format_html(
-                '<span style="color: #0038A8;">{}</span> - {}',
-                empleado.numero_empleado,
-                empleado.puesto
-            )
+            return obj.perfil.get_tipo_perfil_display()
         except:
-            return "Sin perfil de empleado"
-    get_empleado_info.short_description = 'Información de Empleado'
+            return 'Sin perfil'
+    get_tipo_perfil.short_description = 'Tipo de Perfil'
+    
+    def get_departamento(self, obj):
+        try:
+            return obj.perfil.departamento.nombre if obj.perfil.departamento else 'Sin departamento'
+        except:
+            return 'Sin departamento'
+    get_departamento.short_description = 'Departamento'
 
 
-@admin.register(Empleado)
-class EmpleadoAdmin(admin.ModelAdmin):
-    list_display = ('numero_empleado', 'nombre_completo', 'departamento', 'puesto', 'fecha_ingreso', 'antiguedad_anos', 'activo')
-    list_filter = ('departamento', 'activo', 'fecha_ingreso', 'genero')
-    search_fields = ('numero_empleado', 'nombre', 'apellido_paterno', 'apellido_materno', 'email')
-    readonly_fields = ('fecha_creacion', 'fecha_actualizacion', 'antiguedad_anos')
+@admin.register(Perfil)
+class PerfilAdmin(admin.ModelAdmin):
+    list_display = ('numero_empleado', 'usuario', 'get_nombre_completo', 'tipo_perfil', 'departamento', 'puesto', 'activo')
+    list_filter = ('tipo_perfil', 'departamento', 'activo', 'fecha_contratacion')
+    search_fields = ('numero_empleado', 'usuario__username', 'usuario__first_name', 'usuario__last_name', 'puesto')
+    readonly_fields = ('fecha_creacion', 'fecha_actualizacion')
     
     fieldsets = (
         ('Información Personal', {
-            'fields': ('numero_empleado', 'nombre', 'apellido_paterno', 'apellido_materno', 
-                      'fecha_nacimiento', 'genero', 'estado_civil', 'user')
-        }),
-        ('Información de Contacto', {
-            'fields': ('telefono', 'email', 'direccion')
+            'fields': ('usuario', 'tipo_perfil', 'numero_empleado', 'telefono', 'direccion', 'fecha_nacimiento')
         }),
         ('Información Laboral', {
-            'fields': ('departamento', 'puesto', 'fecha_ingreso', 'salario', 'supervisor')
+            'fields': ('departamento', 'puesto', 'fecha_contratacion', 'salario', 'supervisor')
         }),
-        ('Gestión de Vacaciones', {
-            'fields': ('dias_vacaciones_anuales', 'dias_vacaciones_usados', 'dias_vacaciones_disponibles')
+        ('Vacaciones', {
+            'fields': ('dias_vacaciones_anuales', 'dias_vacaciones_usados')
         }),
-        ('Estado y Auditoría', {
-            'fields': ('activo', 'fecha_creacion', 'fecha_actualizacion')
+        ('Estado', {
+            'fields': ('activo',)
+        }),
+        ('Auditoría', {
+            'fields': ('fecha_creacion', 'fecha_actualizacion'),
+            'classes': ('collapse',)
         }),
     )
     
-    def antiguedad_anos(self, obj):
-        return f"{obj.antiguedad_anos} años"
-    antiguedad_anos.short_description = 'Antigüedad'
+    def get_nombre_completo(self, obj):
+        return obj.nombre_completo
+    get_nombre_completo.short_description = 'Nombre Completo'
 
 
-@admin.register(Vacacion)
-class VacacionAdmin(admin.ModelAdmin):
-    list_display = ('empleado', 'fecha_inicio', 'fecha_fin', 'dias_solicitados', 'tipo', 'etapa', 'estado', 'fecha_solicitud')
-    list_filter = ('estado', 'tipo', 'etapa', 'fecha_solicitud', 'empleado__departamento')
-    search_fields = ('empleado__nombre', 'empleado__apellido_paterno', 'empleado__apellido_materno')
+@admin.register(SolicitudVacaciones)
+class SolicitudVacacionesAdmin(admin.ModelAdmin):
+    list_display = ('empleado', 'fecha_inicio', 'fecha_fin', 'dias_solicitados', 'tipo', 'estado', 'fecha_solicitud')
+    list_filter = ('estado', 'tipo', 'fecha_solicitud', 'empleado__departamento')
+    search_fields = ('empleado__usuario__username', 'empleado__usuario__first_name', 'empleado__usuario__last_name')
     readonly_fields = ('fecha_solicitud', 'dias_solicitados')
+    date_hierarchy = 'fecha_solicitud'
     
     fieldsets = (
         ('Información de la Solicitud', {
-            'fields': ('empleado', 'fecha_inicio', 'fecha_fin', 'dias_solicitados', 'motivo')
+            'fields': ('empleado', 'fecha_inicio', 'fecha_fin', 'dias_solicitados', 'tipo', 'motivo', 'estado')
         }),
-        ('Tipo y Estado', {
-            'fields': ('tipo', 'etapa', 'estado', 'motivo_extraordinario')
+        ('Aprobación por Jefe', {
+            'fields': ('aprobado_por_jefe', 'comentarios_jefe', 'fecha_aprobacion_jefe')
         }),
-        ('Proceso de Aprobación', {
-            'fields': ('aprobado_jefe', 'aprobado_rh', 'comentarios_rh', 'aprobado_por')
+        ('Aprobación por RH', {
+            'fields': ('aprobado_por_rh', 'comentarios_rh', 'fecha_aprobacion_rh')
         }),
         ('Auditoría', {
-            'fields': ('fecha_solicitud', 'fecha_aprobacion')
+            'fields': ('fecha_solicitud',),
+            'classes': ('collapse',)
         }),
     )
     
-    def get_queryset(self, request):
-        return super().get_queryset(request).select_related('empleado', 'empleado__departamento')
+    def get_readonly_fields(self, request, obj=None):
+        if obj:  # editing an existing object
+            return self.readonly_fields + ('empleado', 'fecha_inicio', 'fecha_fin', 'tipo', 'motivo')
+        return self.readonly_fields
 
 
 @admin.register(Departamento)
 class DepartamentoAdmin(admin.ModelAdmin):
-    list_display = ('nombre', 'descripcion', 'get_empleados_count')
+    list_display = ('nombre', 'jefe', 'get_empleados_count', 'activo')
+    list_filter = ('activo',)
     search_fields = ('nombre', 'descripcion')
     
     def get_empleados_count(self, obj):
-        return obj.empleado_set.filter(activo=True).count()
+        count = obj.perfil_set.filter(activo=True).count()
+        return format_html('<span style="color: #0066cc; font-weight: bold;">{}</span>', count)
     get_empleados_count.short_description = 'Empleados Activos'
 
 
-# Desregistrar el UserAdmin por defecto y registrar el personalizado
+# Reemplazar el UserAdmin por defecto
 admin.site.unregister(User)
 admin.site.register(User, CustomUserAdmin)
+
+# Configuración del sitio de administración
+admin.site.site_header = "Sistema de Recursos Humanos - Grupo Keila"
+admin.site.site_title = "RH Admin"
+admin.site.index_title = "Panel de Administración"

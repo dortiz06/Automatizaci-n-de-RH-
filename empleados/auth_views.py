@@ -4,7 +4,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.urls import reverse
 from django.http import HttpResponseRedirect
-from .models import Empleado
+from .models import Perfil
 
 
 def login_view(request):
@@ -23,24 +23,23 @@ def login_view(request):
                     login(request, user)
                     messages.success(request, f'¡Bienvenido, {user.first_name or user.username}!')
                     
-                    # Redirigir según el rol del usuario
-                    next_url = request.GET.get('next', 'dashboard')
-                    if next_url == 'dashboard':
-                        # Verificar si tiene perfil de empleado
+                    # Redirigir según el perfil del usuario
+                    next_url = request.GET.get('next', 'empleados:dashboard')
+                    if next_url == 'empleados:dashboard':
+                        # Verificar si tiene perfil
                         try:
-                            empleado = Empleado.objects.get(user=user)
-                            if user.groups.filter(name='JEFES').exists():
-                                # Es jefe de área
-                                next_url = 'panel_jefe'
-                            elif user.groups.filter(name='RH').exists():
-                                # Es RH
-                                next_url = 'gestion_usuarios'
+                            perfil = Perfil.objects.get(usuario=user)
+                            if perfil.es_admin():
+                                next_url = 'empleados:admin_dashboard'
+                            elif perfil.es_rh():
+                                next_url = 'empleados:rh_dashboard'
+                            elif perfil.es_jefe_area():
+                                next_url = 'empleados:jefe_dashboard'
                             else:
-                                # Es empleado normal
-                                next_url = 'mis_vacaciones'
-                        except Empleado.DoesNotExist:
-                            # No tiene perfil de empleado
-                            next_url = 'dashboard'
+                                next_url = 'empleados:empleado_dashboard'
+                        except Perfil.DoesNotExist:
+                            # No tiene perfil
+                            next_url = 'empleados:dashboard'
                     
                     return redirect(next_url)
                 else:
