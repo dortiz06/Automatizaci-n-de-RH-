@@ -1,19 +1,19 @@
 {% extends 'base.html' %}
 {% load static %}
 
-{% block title %}Iniciar Sesión - Sistema RH{% endblock %}
+{% block title %}Recursos Humanos{% endblock %}
 
 {% block content %}
 <div class="container-fluid">
     <div class="row justify-content-center align-items-center min-vh-100">
         <div class="col-md-6 col-lg-4">
             <div class="card glass-card shadow-lg border-0">
-                <div class="card-header text-center py-4">
+                <div class="card-header text-center py-4 bg-transparent border-0">
                     <div class="mb-3">
-                        <i class="fas fa-users fa-3x text-primary"></i>
+                        <img src="{% static 'images/logos/logo-keila.png' %}" alt="Logo Grupo Keila" class="login-logo">
                     </div>
-                    <h3 class="mb-0">Sistema de RH</h3>
-                    <p class="text-muted mb-0">Inicia sesión para continuar</p>
+                    <h3 class="mb-0 login-title">Sistema de RH</h3>
+                    <p class="mb-0 login-subtitle">Inicia sesión para continuar</p>
                 </div>
                 <div class="card-body p-4">
                     <!-- Mensajes -->
@@ -63,7 +63,7 @@
                         </div>
 
                         <div class="d-grid">
-                            <button type="submit" class="btn btn-primary btn-lg" id="submitBtn">
+                            <button type="submit" class="btn btn-login btn-lg" id="submitBtn">
                                 <i class="fas fa-sign-in-alt me-2"></i>Iniciar Sesión
                             </button>
                         </div>
@@ -86,9 +86,25 @@
 <style>
 .min-vh-100 {
     min-height: 100vh;
-    background: radial-gradient(1200px 600px at 10% 10%, rgba(59,130,246,0.12), transparent 60%),
-                radial-gradient(1200px 600px at 90% 90%, rgba(0,56,168,0.12), transparent 60%),
-                linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    position: relative;
+    background-image: url('{% static "images/login/login1.jpg" %}');
+    background-size: cover; /* Ensures it fills horizontally */
+    background-position: center bottom; /* Prioritize bottom of image */
+    background-repeat: no-repeat;
+    background-attachment: fixed; /* Optional parallax */
+}
+
+.min-vh-100::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.4); /* Dark overlay for contrast */
+    z-index: 0;
+}
+
+.min-vh-100 > * {
+    position: relative;
+    z-index: 1; /* Ensure content sits above overlay */
 }
 
 .card {
@@ -98,17 +114,28 @@
 
 /* Liquid Glass container */
 .glass-card {
-    background: rgba(255, 255, 255, 0.1);
-    border: 1px solid rgba(255, 255, 255, 0.3);
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    box-shadow: 0 8px 28px rgba(0, 0, 0, 0.12);
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
+    border-radius: 20px;
 }
 
-.card-header {
-    background: linear-gradient(135deg, var(--primary-color), var(--accent-color));
-    color: white;
-    border: none;
+.login-logo {
+    width: 84px;
+    height: auto;
+    filter: drop-shadow(0 8px 16px rgba(0,0,0,0.25));
+}
+
+.login-title {
+    color: #ffffff;
+    font-weight: 700;
+    letter-spacing: 0.2px;
+}
+
+.login-subtitle {
+    color: rgba(255,255,255,0.85);
 }
 
 .form-control {
@@ -134,18 +161,20 @@
     transform: translateY(-1px);
 }
 
-.btn-primary {
-    background: linear-gradient(135deg, var(--accent-color), var(--primary-color));
+.btn-login {
+    background: #01356f;
     border: none;
-    border-radius: 10px;
-    font-weight: 600;
-    letter-spacing: 0.5px;
-    transition: all 0.3s ease;
+    border-radius: 12px;
+    font-weight: 700;
+    letter-spacing: 0.4px;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, filter 0.2s ease;
+    color: #ffffff;
 }
 
-.btn-primary:hover {
+.btn-login:hover {
     transform: translateY(-2px);
-    box-shadow: 0 8px 25px rgba(59, 130, 246, 0.3);
+    filter: brightness(1.05);
+    box-shadow: 0 10px 24px rgba(1, 53, 111, 0.35);
 }
 
 .input-group .btn {
@@ -232,6 +261,11 @@
 @media (max-width: 768px) {
     .col-md-4 {
         margin-bottom: 1rem;
+    }
+    /* iOS/Safari mobile often ignores fixed backgrounds; disable for performance */
+    .min-vh-100 {
+        background-attachment: scroll;
+        background-position: center bottom; /* Keep bottom alignment on mobile */
     }
 }
 </style>
