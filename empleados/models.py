@@ -297,6 +297,20 @@ class Perfil(models.Model):
         # Solo mostrar si tiene 2+ años de antigüedad
         return self.antiguedad_anos >= 2
     
+    @property
+    def dias_al_finalizar_ano_actual(self):
+        """Retorna los días totales que tendrá al finalizar el año laboral actual"""
+        if not self.fecha_contratacion:
+            return 0
+        
+        if self.antiguedad_anos < 1:
+            # Primer año: 12 días
+            return 12
+        
+        # Año laboral actual = antiguedad + 1
+        ano_laboral_actual = self.antiguedad_anos + 1
+        return self.calcular_dias_segun_ano_laboral(ano_laboral_actual)
+    
     def procesar_acumulacion_mensual(self):
         """Procesa la acumulación mensual de vacaciones"""
         from datetime import date
