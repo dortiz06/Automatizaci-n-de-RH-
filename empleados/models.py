@@ -304,13 +304,15 @@ class SolicitudVacaciones(models.Model):
     
     def aprobar_por_jefe(self, jefe, comentario=""):
         """Aprobar solicitud por jefe de área"""
+        from django.utils import timezone
+        
         if not self.puede_ser_aprobada_por_jefe():
             return False
         
         self.estado = 'APROBADO_JEFE'
         self.aprobado_por_jefe = jefe
         self.comentarios_jefe = comentario
-        self.fecha_aprobacion_jefe = models.DateTimeField(auto_now=True)
+        self.fecha_aprobacion_jefe = timezone.now()
         
         # Si es empleado normal, va directo a RH
         if self.tipo == 'NORMAL':
@@ -321,25 +323,29 @@ class SolicitudVacaciones(models.Model):
     
     def rechazar_por_jefe(self, jefe, comentario=""):
         """Rechazar solicitud por jefe de área"""
+        from django.utils import timezone
+        
         if not self.puede_ser_aprobada_por_jefe():
             return False
         
         self.estado = 'RECHAZADO_JEFE'
         self.aprobado_por_jefe = jefe
         self.comentarios_jefe = comentario
-        self.fecha_aprobacion_jefe = models.DateTimeField(auto_now=True)
+        self.fecha_aprobacion_jefe = timezone.now()
         self.save()
         return True
     
     def aprobar_por_rh(self, rh_user, comentario=""):
         """Aprobar solicitud por RH"""
+        from django.utils import timezone
+        
         if not self.puede_ser_aprobada_por_rh():
             return False
         
         self.estado = 'APROBADO_RH'
         self.aprobado_por_rh = rh_user
         self.comentarios_rh = comentario
-        self.fecha_aprobacion_rh = models.DateTimeField(auto_now=True)
+        self.fecha_aprobacion_rh = timezone.now()
         
         # Actualizar días usados del empleado
         self.empleado.dias_vacaciones_usados += self.dias_solicitados
@@ -350,13 +356,15 @@ class SolicitudVacaciones(models.Model):
     
     def rechazar_por_rh(self, rh_user, comentario=""):
         """Rechazar solicitud por RH"""
+        from django.utils import timezone
+        
         if not self.puede_ser_aprobada_por_rh():
             return False
         
         self.estado = 'RECHAZADO_RH'
         self.aprobado_por_rh = rh_user
         self.comentarios_rh = comentario
-        self.fecha_aprobacion_rh = models.DateTimeField(auto_now=True)
+        self.fecha_aprobacion_rh = timezone.now()
         self.save()
         return True
 
