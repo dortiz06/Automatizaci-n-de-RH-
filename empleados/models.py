@@ -197,7 +197,7 @@ class Perfil(models.Model):
             return 0  # Los empleados nuevos no acumulan mensualmente
         
         dias_anuales = self.dias_vacaciones_segun_antiguedad
-        return round(dias_anuales / 12, 4)  # Días por mes con 4 decimales
+        return round(dias_anuales / 12, 2)  # Días por mes redondeado a 2 decimales
     
     def calcular_dias_acumulados_hasta_hoy(self):
         """Calcula cuántos días ha acumulado hasta el día de hoy en el año actual"""
@@ -206,34 +206,43 @@ class Perfil(models.Model):
         if not self.fecha_contratacion:
             return 0
         
-        # Para empleados con menos de 1 año, usar el cálculo proporcional
+        # Para empleados con menos de 1 año, usar el cálculo proporcional total
         if self.antiguedad_anos < 1:
-            return self.dias_vacaciones_segun_antiguedad
+            return int(self.dias_vacaciones_segun_antiguedad)
         
-        # Para empleados con 1+ años, calcular proporcional al año
+        # Para empleados con 1+ años, calcular proporcional del año actual
         hoy = date.today()
         
-        # Calcular cuántos meses del año han pasado
-        # Si estamos en octubre y el último reset fue en enero, han pasado ~10 meses
-        if self.ultimo_reset_vacaciones:
-            inicio_periodo = self.ultimo_reset_vacaciones
-        else:
-            # Si no hay reset, usar inicio de año o aniversario
-            inicio_periodo = date(hoy.year, 1, 1)
+        # Calcular en qué mes del año estamos (1-12)
+        mes_actual = hoy.month
         
-        # Calcular meses transcurridos desde el inicio del período
-        meses_transcurridos = (hoy.year - inicio_periodo.year) * 12 + (hoy.month - inicio_periodo.month)
+        # Calcular días correspondientes al año actual (según antigüedad)
+        dias_anuales_actuales = self.dias_vacaciones_segun_antiguedad
+        dias_por_mes = dias_anuales_actuales / 12
         
-        # Si ya pasó la fecha del mes, contar ese mes completo
-        if hoy.day >= inicio_periodo.day:
-            meses_transcurridos += 1
+        # Días acumulados en el año actual (proporcional a meses transcurridos)
+        dias_acumulados_este_ano = dias_por_mes * mes_actual
         
-        # Calcular días acumulados proporcionalmente
-        dias_anuales = self.dias_vacaciones_segun_antiguedad
-        dias_por_mes = dias_anuales / 12
-        dias_acumulados_periodo = dias_por_mes * meses_transcurridos
+        return int(dias_acumulados_este_ano)
+    
+    def calcular_total_disponible_proyectado(self):
+        """Calcula total de días disponibles: año anterior + acumulado este año - usados"""
+        if not self.fecha_contratacion:
+            return 0
         
-        return round(dias_acumulados_periodo, 2)
+        # Días acumulados del año anterior (si existen)
+        dias_ano_anterior = self.dias_vacaciones_acumulados
+        
+        # Días acumulados hasta hoy en el año actual
+        dias_acumulados_hoy = self.calcular_dias_acumulados_hasta_hoy()
+        
+        # Días ya usados este año
+        dias_usados = self.dias_vacaciones_usados
+        
+        # Total disponible proyectado
+        total = dias_ano_anterior + dias_acumulados_hoy - dias_usados
+        
+        return int(total)
     
     def procesar_acumulacion_mensual(self):
         """Procesa la acumulación mensual de vacaciones"""

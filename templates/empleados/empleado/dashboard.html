@@ -31,27 +31,40 @@
     
     <!-- Mostrar días acumulados hasta hoy -->
     <div class="alert alert-info">
-
-
+        <h6 class="mb-3">
+            <i class="fas fa-user-clock me-2"></i>
+            <strong>Tu Antigüedad:</strong> {{ perfil.antiguedad_detallada }} (desde {{ perfil.fecha_contratacion|date:"d/m/Y" }})
+        </h6>
+        
+        {% if perfil.antiguedad_anos >= 1 %}
         <div class="row">
-            <div class="col-md-6">
-                <i class="fas fa-user-clock me-2"></i>
-                <strong>Antigüedad:</strong> {{ perfil.antiguedad_detallada }}
-                <br>
-                <small class="text-muted">Desde {{ perfil.fecha_contratacion|date:"d/m/Y" }}</small>
+            <div class="col-md-4">
+                <div class="p-2 bg-white rounded">
+                    <small class="text-muted">Año Anterior</small>
+                    <div class="h5 mb-0 text-primary">{{ perfil.dias_vacaciones_acumulados }} días</div>
+                </div>
             </div>
-            <div class="col-md-6">
-                <i class="fas fa-calendar-plus me-2"></i>
-                <strong>Días Acumulados hasta Hoy:</strong> {{ perfil.calcular_dias_acumulados_hasta_hoy }} días
-                <br>
-                <small class="text-muted">
-                    Acumulas {{ perfil.calcular_acumulacion_mensual }} días por mes.
-                    {% if perfil.antiguedad_anos >= 1 %}
-                        Al finalizar el año: {{ perfil.dias_vacaciones_segun_antiguedad }} días.
-                    {% endif %}
-                </small>
+            <div class="col-md-4">
+                <div class="p-2 bg-white rounded">
+                    <small class="text-muted">Acumulado Este Año (hasta hoy)</small>
+                    <div class="h5 mb-0 text-success">{{ perfil.calcular_dias_acumulados_hasta_hoy }} días</div>
+                    <small class="text-muted">({{ perfil.calcular_acumulacion_mensual }} días/mes)</small>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="p-2 bg-white rounded">
+                    <small class="text-muted">Total Proyectado Disponible</small>
+                    <div class="h5 mb-0 text-info">{{ perfil.calcular_total_disponible_proyectado }} días</div>
+                    <small class="text-muted">Al finalizar año: {{ perfil.dias_vacaciones_segun_antiguedad }} días</small>
+                </div>
             </div>
         </div>
+        {% else %}
+        <div class="text-muted">
+            <i class="fas fa-calendar-plus me-2"></i>
+            Días acumulados hasta hoy: <strong>{{ perfil.calcular_dias_acumulados_hasta_hoy }} días</strong>
+        </div>
+        {% endif %}
     </div>
     
     <div class="row">
