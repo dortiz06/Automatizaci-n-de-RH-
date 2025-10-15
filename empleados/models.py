@@ -251,12 +251,13 @@ class Perfil(models.Model):
         
         # Si el aniversario ya pasó este año, calcular desde el aniversario
         if hoy >= fecha_aniversario:
-            # Calcular meses desde el aniversario
+            # Calcular meses completos desde el aniversario
+            # Ejemplo: aniversario 15/julio, hoy 15/octubre → 3 meses (agosto, septiembre, octubre)
             meses_desde_aniversario = (hoy.year - fecha_aniversario.year) * 12 + (hoy.month - fecha_aniversario.month)
-            if hoy.day >= fecha_aniversario.day:
-                meses_desde_aniversario += 1
+            # No sumar mes adicional, contar solo meses completos transcurridos
         else:
             # El aniversario aún no llega, seguimos en el año laboral anterior
+            
             ano_laboral_actual = self.antiguedad_anos
             meses_desde_aniversario = hoy.month
         
