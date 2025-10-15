@@ -124,6 +124,56 @@ class Perfil(models.Model):
             years -= 1
         return max(0, years)
     
+    @property
+    def antiguedad_detallada(self):
+        """Retorna antigüedad en formato: X años y Y meses"""
+        if not self.fecha_contratacion:
+            return "Sin fecha de contratación"
+        
+        today = date.today()
+        
+        # Calcular años completos
+        years = today.year - self.fecha_contratacion.year
+        if today.month < self.fecha_contratacion.month or (today.month == self.fecha_contratacion.month and today.day < self.fecha_contratacion.day):
+            years -= 1
+        
+        # Calcular meses adicionales
+        if today.month >= self.fecha_contratacion.month:
+            months = today.month - self.fecha_contratacion.month
+            if today.day < self.fecha_contratacion.day:
+                months -= 1
+        else:
+            months = 12 + today.month - self.fecha_contratacion.month
+            if today.day < self.fecha_contratacion.day:
+                months -= 1
+        
+        # Asegurar que los meses sean positivos
+        if months < 0:
+            months = 0
+        
+        # Formatear salida
+        if years == 0:
+            if months == 0:
+                return "Menos de 1 mes"
+            elif months == 1:
+                return "1 mes"
+            else:
+                return f"{months} meses"
+        elif years == 1:
+            if months == 0:
+                return "1 año"
+            elif months == 1:
+                return "1 año y 1 mes"
+            else:
+                return f"1 año y {months} meses"
+        else:
+            if months == 0:
+                return f"{years} años"
+            elif months == 1:
+                return f"{years} años y 1 mes"
+            else:
+                return f"{years} años y {months} meses"
+    
     def es_jefe_area(self):
         return self.tipo_perfil == 'JEFE_AREA'
     
