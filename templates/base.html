@@ -263,7 +263,7 @@
     <!-- Navbar -->
     <nav class="navbar navbar-expand-lg navbar-dark">
         <div class="container">
-            <a class="navbar-brand" href="{% url 'index' %}">
+            <a class="navbar-brand" href="{% url 'empleados:dashboard' %}">
                 <i class="fas fa-users me-2"></i>
                 Recursos Humanos
             </a>
@@ -274,7 +274,7 @@
                 <ul class="navbar-nav me-auto">
                     {% if user.is_authenticated %}
                         <li class="nav-item">
-                            <a class="nav-link" href="{% url 'dashboard' %}">
+                            <a class="nav-link" href="{% url 'empleados:dashboard' %}">
                                 <i class="fas fa-home me-1"></i>Inicio
                             </a>
                         </li>
@@ -282,18 +282,18 @@
                             {% for group in user.groups.all %}
                                 {% if group.name == 'RH' %}
                                     <li class="nav-item">
-                                        <a class="nav-link" href="{% url 'lista_empleados' %}">
+                                        <a class="nav-link" href="{% url 'empleados:gestion_usuarios' %}">
                                             <i class="fas fa-users me-1"></i>Empleados
                                         </a>
                                     </li>
                                     <li class="nav-item">
-                                        <a class="nav-link" href="{% url 'vacaciones' %}">
+                                        <a class="nav-link" href="{% url 'empleados:rh_dashboard' %}">
                                             <i class="fas fa-calendar-alt me-1"></i>Vacaciones
                                         </a>
                                     </li>
                                 {% elif group.name == 'JEFES' %}
                                     <li class="nav-item">
-                                        <a class="nav-link" href="{% url 'solicitudes_jefe' %}">
+                                        <a class="nav-link" href="{% url 'empleados:jefe_dashboard' %}">
                                             <i class="fas fa-clipboard-list me-1"></i>Solicitudes
                                         </a>
                                     </li>
@@ -308,13 +308,13 @@
                             {% for group in user.groups.all %}
                                 {% if group.name == 'JEFES' %}
                                     <li class="nav-item">
-                                        <a class="nav-link" href="{% url 'panel_jefe' %}">
+                                        <a class="nav-link" href="{% url 'empleados:jefe_dashboard' %}">
                                             <i class="fas fa-user-tie me-1"></i>Panel Jefe
                                         </a>
                                     </li>
                                 {% elif group.name == 'RH' %}
                                     <li class="nav-item">
-                                        <a class="nav-link" href="{% url 'gestion_usuarios' %}">
+                                        <a class="nav-link" href="{% url 'empleados:gestion_usuarios' %}">
                                             <i class="fas fa-users-cog me-1"></i>Usuarios
                                         </a>
                                     </li>
@@ -325,7 +325,7 @@
                                     </li>
                                 {% elif group.name == 'EMPLEADOS' %}
                                     <li class="nav-item">
-                                        <a class="nav-link" href="{% url 'mis_vacaciones' %}">
+                                        <a class="nav-link" href="{% url 'empleados:empleado_dashboard' %}">
                                             <i class="fas fa-calendar-check me-1"></i>Mis Vacaciones
                                         </a>
                                     </li>
@@ -333,18 +333,18 @@
                             {% endfor %}
                         {% endif %}
                         <li class="nav-item">
-                            <a class="nav-link" href="{% url 'perfil_usuario' %}">
+                            <a class="nav-link" href="{% url 'empleados:perfil_usuario' %}">
                                 <i class="fas fa-user-circle me-1"></i>Mi Perfil
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="{% url 'logout' %}">
+                            <a class="nav-link" href="{% url 'empleados:logout' %}">
                                 <i class="fas fa-sign-out-alt me-1"></i>Salir
                             </a>
                         </li>
                     {% else %}
                         <li class="nav-item">
-                            <a class="nav-link" href="{% url 'login' %}">
+                            <a class="nav-link" href="{% url 'empleados:login' %}">
                                 <i class="fas fa-sign-in-alt me-1"></i>Iniciar Sesión
                             </a>
                         </li>

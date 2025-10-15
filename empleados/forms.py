@@ -135,13 +135,25 @@ class SolicitudVacacionesForm(forms.ModelForm):
         self.empleado = kwargs.pop('empleado', None)
         super().__init__(*args, **kwargs)
         
-        # Filtrar tipos de vacación según antigüedad
-        if self.empleado and self.empleado.antiguedad_anos < 1:
-            self.fields['tipo'].choices = [
-                ('EXTRAORDINARIA', 'Vacación Extraordinaria'),
-                ('EMERGENCIA', 'Vacación de Emergencia'),
-            ]
-            self.fields['tipo'].help_text = 'Solo puedes solicitar vacaciones extraordinarias (menos de 1 año de antigüedad)'
+        # Mostrar información de elegibilidad
+        if self.empleado:
+            antiguedad = self.empleado.antiguedad_anos
+            dias_calculados = self.empleado.dias_vacaciones_segun_antiguedad
+            dias_disponibles = self.empleado.dias_vacaciones_disponibles
+            
+            if antiguedad < 1:
+                self.fields['tipo'].choices = [
+                    ('EXTRAORDINARIA', 'Vacación Extraordinaria'),
+                    ('EMERGENCIA', 'Vacación de Emergencia'),
+                ]
+                meses_trabajados = ((timezone.now().date() - self.empleado.fecha_contratacion).days) / 30.44
+                self.fields['tipo'].help_text = (
+                    f'Tienes {antiguedad} año(s) de antigüedad ({meses_trabajados:.1f} meses). '
+                    f'Días acumulados: {dias_calculados:.2f}. '
+                    f'Días disponibles: {dias_disponibles}'
+                )
+            else:
+                self.fields['tipo'].help_text = f'Antigüedad: {antiguedad} años. Días disponibles: {dias_disponibles}'
     
     def clean(self):
         cleaned_data = super().clean()

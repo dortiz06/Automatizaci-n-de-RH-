@@ -1,0 +1,232 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Editar Perfil - Sistema RH{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="page-header">
+        <div class="container">
+            <h1><i class="fas fa-user-edit me-3"></i>Editar Perfil</h1>
+            <p>Actualiza la información del perfil de {{ perfil_editado.usuario.get_full_name|default:perfil_editado.usuario.username }}</p>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-lg-8">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">
+                            <i class="fas fa-user-cog me-2"></i>
+                            Información del Perfil
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <form method="post">
+                            {% csrf_token %}
+                            
+                            <!-- Información Personal -->
+                            <div class="row mb-4">
+                                <div class="col-12">
+                                    <h6 class="text-primary mb-3">
+                                        <i class="fas fa-user-circle me-2"></i>
+                                        Datos Personales
+                                    </h6>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="{{ form.telefono.id_for_label }}" class="form-label">
+                                            <i class="fas fa-phone me-1"></i>{{ form.telefono.label }}
+                                        </label>
+                                        {{ form.telefono }}
+                                        {% if form.telefono.errors %}
+                                            <div class="text-danger">
+                                                {% for error in form.telefono.errors %}
+                                                    <small>{{ error }}</small>
+                                                {% endfor %}
+                                            </div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="{{ form.fecha_nacimiento.id_for_label }}" class="form-label">
+                                            <i class="fas fa-birthday-cake me-1"></i>{{ form.fecha_nacimiento.label }}
+                                        </label>
+                                        {{ form.fecha_nacimiento }}
+                                        {% if form.fecha_nacimiento.errors %}
+                                            <div class="text-danger">
+                                                {% for error in form.fecha_nacimiento.errors %}
+                                                    <small>{{ error }}</small>
+                                                {% endfor %}
+                                            </div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Dirección -->
+                            <div class="mb-4">
+                                <div class="mb-3">
+                                    <label for="{{ form.direccion.id_for_label }}" class="form-label">
+                                        <i class="fas fa-map-marker-alt me-1"></i>{{ form.direccion.label }}
+                                    </label>
+                                    {{ form.direccion }}
+                                    {% if form.direccion.errors %}
+                                        <div class="text-danger">
+                                            {% for error in form.direccion.errors %}
+                                                <small>{{ error }}</small>
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                    <div class="form-text">Dirección completa de residencia</div>
+                                </div>
+                            </div>
+
+                            <!-- Información del Perfil Actual -->
+                            <div class="row mb-4">
+                                <div class="col-12">
+                                    <h6 class="text-info mb-3">
+                                        <i class="fas fa-info-circle me-2"></i>
+                                        Información Actual
+                                    </h6>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label class="form-label">Usuario</label>
+                                        <p class="form-control-plaintext">{{ perfil_editado.usuario.username }}</p>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label class="form-label">Email</label>
+                                        <p class="form-control-plaintext">{{ perfil_editado.usuario.email }}</p>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label class="form-label">Tipo de Perfil</label>
+                                        <p class="form-control-plaintext">
+                                            <span class="badge bg-primary">{{ perfil_editado.get_tipo_perfil_display }}</span>
+                                        </p>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label class="form-label">Departamento</label>
+                                        <p class="form-control-plaintext">{{ perfil_editado.departamento|default:"Sin asignar" }}</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Botones de Acción -->
+                            <div class="d-flex justify-content-between">
+                                <a href="{% url 'empleados:gestion_usuarios' %}" class="btn btn-secondary">
+                                    <i class="fas fa-arrow-left me-2"></i>Volver
+                                </a>
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-save me-2"></i>Guardar Cambios
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Información Adicional -->
+                <div class="card mt-4">
+                    <div class="card-header">
+                        <h6 class="mb-0">
+                            <i class="fas fa-info-circle me-2"></i>
+                            Información Importante
+                        </h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h6><i class="fas fa-check-circle text-success me-2"></i>Campos Editables</h6>
+                                <ul class="list-unstyled">
+                                    <li>• Teléfono de contacto</li>
+                                    <li>• Dirección de residencia</li>
+                                    <li>• Fecha de nacimiento</li>
+                                </ul>
+                            </div>
+                            <div class="col-md-6">
+                                <h6><i class="fas fa-lock text-warning me-2"></i>Campos Restringidos</h6>
+                                <ul class="list-unstyled">
+                                    <li>• Usuario y email (contactar admin)</li>
+                                    <li>• Tipo de perfil (contactar RH)</li>
+                                    <li>• Departamento (contactar RH)</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.card {
+    border-radius: 15px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+}
+
+.card-header {
+    background: linear-gradient(135deg, var(--primary-color), var(--accent-color));
+    color: white;
+    border-radius: 15px 15px 0 0 !important;
+    font-weight: 600;
+}
+
+.form-control, .form-select {
+    border-radius: 10px;
+    border: 2px solid #e9ecef;
+    padding: 0.75rem 1rem;
+    transition: all 0.3s ease;
+}
+
+.form-control:focus, .form-select:focus {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+}
+
+.form-control-plaintext {
+    background: #f8f9fa;
+    padding: 0.5rem 0.75rem;
+    border-radius: 8px;
+    border: 1px solid #e9ecef;
+}
+
+.btn {
+    border-radius: 10px;
+    padding: 0.75rem 1.5rem;
+    font-weight: 600;
+    transition: all 0.3s ease;
+}
+
+.btn-primary {
+    background: linear-gradient(135deg, var(--primary-color), var(--accent-color));
+    border: none;
+}
+
+.btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+}
+
+.page-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 2rem 0;
+    margin-bottom: 2rem;
+}
+
+.list-unstyled li {
+    padding: 0.25rem 0;
+    color: #6c757d;
+}
+</style>
+{% endblock %}

@@ -33,6 +33,9 @@ class Perfil(models.Model):
     # Información de vacaciones
     dias_vacaciones_anuales = models.PositiveIntegerField(default=20, verbose_name="Días de Vacaciones Anuales")
     dias_vacaciones_usados = models.PositiveIntegerField(default=0, verbose_name="Días de Vacaciones Usados")
+    dias_vacaciones_extraordinarios = models.PositiveIntegerField(default=0, verbose_name="Días de Vacaciones Extraordinarios Usados")
+    dias_vacaciones_acumulados = models.PositiveIntegerField(default=0, verbose_name="Días de Vacaciones Acumulados del Año Anterior")
+    ultimo_reset_vacaciones = models.DateField(null=True, blank=True, verbose_name="Último Reset de Vacaciones")
     
     # Auditoría
     fecha_creacion = models.DateTimeField(auto_now_add=True)
@@ -51,15 +54,72 @@ class Perfil(models.Model):
         return self.usuario.get_full_name() or self.usuario.username
     
     @property
+    def dias_vacaciones_segun_antiguedad(self):
+        """Calcula días de vacaciones según tabla de antigüedad"""
+        anos = self.antiguedad_anos
+        
+        if anos < 1:
+            # Cálculo proporcional para empleados con menos de 1 año
+            # 12 días del primer año / 12 meses = 1 día por mes
+            dias_trabajados = (date.today() - self.fecha_contratacion).days
+            meses_trabajados = dias_trabajados / 30.44  # promedio días por mes
+            dias_acumulados = (12 / 12) * meses_trabajados
+            return round(dias_acumulados, 2)
+        elif anos == 1:
+            return 12
+        elif anos == 2:
+            return 14
+        elif anos == 3:
+            return 16
+        elif anos == 4:
+            return 18
+        elif anos == 5:
+            return 20
+        elif 6 <= anos <= 10:
+            return 22
+        elif 11 <= anos <= 15:
+            return 24
+        elif 16 <= anos <= 20:
+            return 26
+        elif 21 <= anos <= 25:
+            return 28
+        elif 26 <= anos <= 30:
+            return 30
+        elif anos >= 31:
+            return 32
+        else:
+            return 12  # default
+
+
+    @property
     def dias_vacaciones_disponibles(self):
-        return self.dias_vacaciones_anuales - self.dias_vacaciones_usados
+        # Actualizar automáticamente los días anuales según antigüedad
+        dias_anuales_calculados = int(self.dias_vacaciones_segun_antiguedad)
+        if self.dias_vacaciones_anuales != dias_anuales_calculados:
+            self.dias_vacaciones_anuales = dias_anuales_calculados
+            self.save(update_fields=['dias_vacaciones_anuales'])
+        
+        # Incluir días acumulados del año anterior
+        return (self.dias_vacaciones_anuales + self.dias_vacaciones_acumulados) - self.dias_vacaciones_usados
+    
+    @property
+    def dias_vacaciones_extraordinarios_disponibles(self):
+        """Días extraordinarios disponibles (para empleados con menos de 1 año)"""
+        if self.antiguedad_anos >= 1:
+            return 0
+        # Los empleados nuevos pueden tener hasta 5 días extraordinarios
+        return max(0, 5 - self.dias_vacaciones_extraordinarios)
     
     @property
     def antiguedad_anos(self):
         if not self.fecha_contratacion:
             return 0
         today = date.today()
-        return today.year - self.fecha_contratacion.year - ((today.month, today.day) < (self.fecha_contratacion.month, self.fecha_contratacion.day))
+        # Calcular años completos trabajados
+        years = today.year - self.fecha_contratacion.year
+        if today.month < self.fecha_contratacion.month or (today.month == self.fecha_contratacion.month and today.day < self.fecha_contratacion.day):
+            years -= 1
+        return max(0, years)
     
     def es_jefe_area(self):
         return self.tipo_perfil == 'JEFE_AREA'
@@ -72,6 +132,70 @@ class Perfil(models.Model):
     
     def es_empleado(self):
         return self.tipo_perfil == 'EMPLEADO'
+    
+    def actualizar_dias_vacaciones(self):
+        """Actualiza los días de vacaciones según antigüedad"""
+        self.dias_vacaciones_anuales = int(self.dias_vacaciones_segun_antiguedad)
+        self.save(update_fields=['dias_vacaciones_anuales'])
+    
+    def calcular_acumulacion_mensual(self):
+        """Calcula cuántos días acumula por mes según su antigüedad"""
+        if self.antiguedad_anos < 1:
+            return 0  # Los empleados nuevos no acumulan mensualmente
+        
+        dias_anuales = self.dias_vacaciones_segun_antiguedad
+        return round(dias_anuales / 12, 4)  # Días por mes con 4 decimales
+    
+    def procesar_acumulacion_mensual(self):
+        """Procesa la acumulación mensual de vacaciones"""
+        from datetime import date
+        
+        if self.antiguedad_anos < 1:
+            return False  # Los empleados nuevos no acumulan mensualmente
+        
+        # Calcular días a acumular este mes
+        dias_por_mes = self.calcular_acumulacion_mensual()
+        
+        # Agregar días acumulados
+        self.dias_vacaciones_acumulados += dias_por_mes
+        
+        self.save(update_fields=['dias_vacaciones_acumulados'])
+        return True
+    
+    def procesar_acumulacion_anual(self):
+        """Procesa la acumulación de vacaciones al inicio del año"""
+        from datetime import date
+        
+        # Verificar si ya se procesó este año
+        if self.ultimo_reset_vacaciones and self.ultimo_reset_vacaciones.year == date.today().year:
+            return False
+        
+        # Calcular días no usados del año anterior
+        dias_no_usados = max(0, self.dias_vacaciones_anuales - self.dias_vacaciones_usados)
+        
+        # Acumular TODOS los días no usados (sin límite)
+        dias_a_acumular = dias_no_usados
+        
+        # Actualizar días anuales según nueva antigüedad ANTES de resetear
+        nuevos_dias_anuales = int(self.dias_vacaciones_segun_antiguedad)
+        
+        # Resetear contadores del año
+        self.dias_vacaciones_usados = 0
+        self.ultimo_reset_vacaciones = date.today()
+        self.dias_vacaciones_anuales = nuevos_dias_anuales
+        
+        # Acumular días no usados del año anterior
+        if dias_a_acumular > 0:
+            self.dias_vacaciones_acumulados = dias_a_acumular
+        
+        self.save(update_fields=[
+            'dias_vacaciones_acumulados', 
+            'dias_vacaciones_usados', 
+            'ultimo_reset_vacaciones',
+            'dias_vacaciones_anuales'
+        ])
+        
+        return True
 
 
 class Departamento(models.Model):

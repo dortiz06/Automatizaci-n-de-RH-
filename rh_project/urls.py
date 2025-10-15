@@ -20,8 +20,7 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     
     # Aplicación principal
-    path('', redirect_to_dashboard, name='home'),
-    path('', include('empleados.urls')),
+    path('', include(('empleados.urls', 'empleados'), namespace='empleados')),
 ]
 
 # Manejo de errores personalizados

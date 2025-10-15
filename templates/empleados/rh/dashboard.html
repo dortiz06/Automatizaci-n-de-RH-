@@ -1,0 +1,70 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Dashboard RH{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <h1>Dashboard Recursos Humanos</h1>
+    <p>Bienvenido, {{ perfil.nombre_completo }}</p>
+    
+    <div class="row">
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Solicitudes Pendientes</h5>
+                    <p class="card-text">{{ stats.solicitudes_pendientes }}</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Aprobadas Este Mes</h5>
+                    <p class="card-text">{{ stats.aprobadas_este_mes }}</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Rechazadas Este Mes</h5>
+                    <p class="card-text">{{ stats.rechazadas_este_mes }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row mt-4">
+        <div class="col-12">
+            <h3>Solicitudes Pendientes de RH</h3>
+            <div class="table-responsive">
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>Empleado</th>
+                            <th>Fecha Inicio</th>
+                            <th>Fecha Fin</th>
+                            <th>Días</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for solicitud in solicitudes_pendientes %}
+                        <tr>
+                            <td>{{ solicitud.empleado.nombre_completo }}</td>
+                            <td>{{ solicitud.fecha_inicio }}</td>
+                            <td>{{ solicitud.fecha_fin }}</td>
+                            <td>{{ solicitud.dias_solicitados }}</td>
+                            <td>
+                                <a href="{% url 'empleados:aprobar_rh' solicitud.id %}" class="btn btn-sm btn-primary">Revisar</a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

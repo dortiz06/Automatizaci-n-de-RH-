@@ -29,17 +29,17 @@ def dashboard(request):
     
     if not perfil:
         messages.error(request, 'No tienes un perfil asignado. Contacta al administrador.')
-        return redirect('logout')
+        return redirect('empleados:logout')
     
     # Redirigir según tipo de perfil
     if perfil.es_admin():
-        return redirect('admin_dashboard')
+        return redirect('empleados:admin_dashboard')
     elif perfil.es_rh():
-        return redirect('rh_dashboard')
+        return redirect('empleados:rh_dashboard')
     elif perfil.es_jefe_area():
-        return redirect('jefe_dashboard')
+        return redirect('empleados:jefe_dashboard')
     else:
-        return redirect('empleado_dashboard')
+        return redirect('empleados:empleado_dashboard')
 
 
 @login_required
@@ -72,7 +72,6 @@ def admin_dashboard(request):
         'perfil': perfil,
     }
     return render(request, 'empleados/admin/dashboard.html', context)
-
 
 @login_required
 def rh_dashboard(request):
@@ -230,7 +229,7 @@ def crear_usuario(request):
         if form.is_valid():
             user = form.save()
             messages.success(request, f'Usuario {user.username} creado exitosamente.')
-            return redirect('gestion_usuarios')
+            return redirect('empleados:gestion_usuarios')
     else:
         form = UsuarioConPerfilForm()
     
@@ -256,7 +255,7 @@ def editar_perfil(request, perfil_id):
         if form.is_valid():
             form.save()
             messages.success(request, 'Perfil actualizado exitosamente.')
-            return redirect('gestion_usuarios')
+            return redirect('empleados:gestion_usuarios')
     else:
         form = EditarPerfilForm(instance=perfil_editado)
     
@@ -284,13 +283,19 @@ def solicitar_vacaciones(request):
             solicitud.empleado = perfil
             solicitud.save()
             messages.success(request, 'Solicitud de vacaciones enviada exitosamente.')
-            return redirect('empleado_dashboard')
+            return redirect('empleados:empleado_dashboard')
     else:
         form = SolicitudVacacionesForm(empleado=perfil)
+    
+    # Obtener solicitudes recientes del empleado
+    solicitudes_recientes = SolicitudVacaciones.objects.filter(
+        empleado=perfil
+    ).order_by('-fecha_solicitud')[:5]
     
     context = {
         'form': form,
         'perfil': perfil,
+        'solicitudes_recientes': solicitudes_recientes,
     }
     return render(request, 'empleados/empleado/solicitar_vacaciones.html', context)
 
@@ -325,7 +330,7 @@ def aprobar_jefe(request, solicitud_id):
                 else:
                     messages.error(request, 'No se pudo rechazar la solicitud.')
             
-            return redirect('jefe_dashboard')
+            return redirect('empleados:jefe_dashboard')
     else:
         form = AprobacionJefeForm(solicitud=solicitud)
     
@@ -363,7 +368,7 @@ def aprobar_rh(request, solicitud_id):
                 else:
                     messages.error(request, 'No se pudo rechazar la solicitud.')
             
-            return redirect('rh_dashboard')
+            return redirect('empleados:rh_dashboard')
     else:
         form = AprobacionRHForm(solicitud=solicitud)
     
@@ -407,7 +412,7 @@ def crear_departamento(request):
         if form.is_valid():
             form.save()
             messages.success(request, 'Departamento creado exitosamente.')
-            return redirect('gestion_departamentos')
+            return redirect('empleados:gestion_departamentos')
     else:
         form = ConfigurarDepartamentoForm()
     
@@ -439,16 +444,12 @@ def validar_antiguedad(request):
 
 # === VISTAS DE ERROR ===
 
+
 def error_403(request, exception=None):
-    """Página de error 403 - Permisos insuficientes"""
     return render(request, 'empleados/errors/403.html', status=403)
 
-
 def error_404(request, exception=None):
-    """Página de error 404 - Página no encontrada"""
     return render(request, 'empleados/errors/404.html', status=404)
 
-
 def error_500(request):
-    """Página de error 500 - Error interno del servidor"""
     return render(request, 'empleados/errors/500.html', status=500)

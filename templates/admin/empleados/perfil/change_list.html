@@ -1,0 +1,98 @@
+{% extends "admin/change_list.html" %}
+{% load static %}
+
+{% block extrahead %}
+{{ block.super }}
+<style>
+    .vacation-summary {
+        background: #e3f2fd;
+        border: 1px solid #2196f3;
+        border-radius: 5px;
+        padding: 15px;
+        margin: 10px 0;
+    }
+    .vacation-summary h3 {
+        margin-top: 0;
+        color: #1976d2;
+    }
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 15px;
+        margin: 10px 0;
+    }
+    .stat-card {
+        background: white;
+        border: 1px solid #ddd;
+        border-radius: 5px;
+        padding: 10px;
+        text-align: center;
+    }
+    .stat-number {
+        font-size: 1.5em;
+        font-weight: bold;
+        color: #1976d2;
+    }
+    .stat-label {
+        font-size: 0.9em;
+        color: #666;
+    }
+    .quick-actions {
+        margin-top: 15px;
+    }
+    .quick-actions a {
+        display: inline-block;
+        margin-right: 10px;
+        padding: 5px 10px;
+        background: #1976d2;
+        color: white;
+        text-decoration: none;
+        border-radius: 3px;
+        font-size: 0.9em;
+    }
+    .quick-actions a:hover {
+        background: #1565c0;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="vacation-summary">
+    <h3>📊 Resumen de Control de Vacaciones</h3>
+    
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-number">{{ cl.result_count }}</div>
+            <div class="stat-label">Total Empleados</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-number">{{ cl.result_list|length|add:"-1" }}</div>
+            <div class="stat-label">Empleados Activos</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-number">
+                {% for obj in cl.result_list %}
+                    {% if obj.antiguedad_anos >= 1 %}{{ forloop.counter0|add:"1" }}{% endif %}
+                {% endfor %}
+            </div>
+            <div class="stat-label">Elegibles para Vacaciones</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-number">
+                {% for obj in cl.result_list %}
+                    {% if obj.dias_vacaciones_disponibles > 0 %}{{ forloop.counter0|add:"1" }}{% endif %}
+                {% endfor %}
+            </div>
+            <div class="stat-label">Con Días Disponibles</div>
+        </div>
+    </div>
+    
+    <div class="quick-actions">
+        <a href="{% url 'admin:empleados_solicitudvacaciones_changelist' %}">Ver Solicitudes de Vacaciones</a>
+        <a href="{% url 'admin:empleados_departamento_changelist' %}">Gestionar Departamentos</a>
+        <a href="{% url 'admin:empleados_configuracionsistema_changelist' %}">Configuraciones del Sistema</a>
+    </div>
+</div>
+
+{{ block.super }}
+{% endblock %}

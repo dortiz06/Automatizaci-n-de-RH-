@@ -4,13 +4,17 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.urls import reverse
 from django.http import HttpResponseRedirect
+from django.views.decorators.csrf import ensure_csrf_cookie
 from .models import Perfil
+from .csrf_utils import csrf_exempt_for_development, ensure_csrf_cookie_for_development
 
 
+@ensure_csrf_cookie
+@csrf_exempt_for_development
 def login_view(request):
     """Vista de login personalizada"""
     if request.user.is_authenticated:
-        return redirect('index')
+        return redirect('empleados:dashboard')
     
     if request.method == 'POST':
         username = request.POST.get('username')
@@ -57,28 +61,32 @@ def logout_view(request):
     """Vista de logout personalizada"""
     logout(request)
     messages.info(request, 'Has cerrado sesión exitosamente.')
-    return redirect('login')
+    return redirect('empleados:login')
+
+
 
 
 @login_required
 def perfil_usuario(request):
     """Vista del perfil del usuario actual"""
     try:
-        empleado = Empleado.objects.get(user=request.user)
+        perfil = Perfil.objects.get(usuario=request.user)
         tiene_perfil = True
-    except Empleado.DoesNotExist:
-        empleado = None
+    except Perfil.DoesNotExist:
+        perfil = None
         tiene_perfil = False
     
-    # Obtener información de grupos
+    # Obtener grupos del usuario para mostrar roles
     grupos = request.user.groups.all()
-    es_rh = request.user.groups.filter(name='RH').exists()
-    es_jefe = request.user.groups.filter(name='JEFES').exists()
-    es_empleado = request.user.groups.filter(name='EMPLEADOS').exists()
+    
+    # Variables para el template
+    es_rh = perfil.es_rh() if perfil else False
+    es_jefe = perfil.es_jefe_area() if perfil else False
+    es_empleado = perfil.es_empleado() if perfil else False
     
     context = {
         'user': request.user,
-        'empleado': empleado,
+        'perfil': perfil,
         'tiene_perfil': tiene_perfil,
         'grupos': grupos,
         'es_rh': es_rh,

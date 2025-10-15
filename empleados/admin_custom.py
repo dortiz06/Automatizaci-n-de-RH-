@@ -1,210 +1,198 @@
 from django.contrib import admin
 from django.utils.html import format_html
-from django.urls import path
-from django.shortcuts import render
-from .models import Departamento, Empleado, Vacacion
+from django.urls import reverse
+from django.utils.safestring import mark_safe
+from django.db.models import Q
+from .models import Perfil, Departamento, SolicitudVacaciones, ConfiguracionSistema
+from datetime import date, timedelta
 
 
-class EmpleadoAdminCustom(admin.ModelAdmin):
-    """Admin personalizado para Empleado con diseño mejorado"""
+@admin.register(Perfil)
+class PerfilAdmin(admin.ModelAdmin):
+    """Admin personalizado para gestión de perfiles de empleados"""
     
-    # Configuración de la lista
     list_display = [
-        'foto_perfil', 'numero_empleado', 'nombre_completo', 'departamento', 
-        'puesto', 'fecha_ingreso', 'dias_vacaciones_disponibles', 'estado_activo'
+        'numero_empleado', 'nombre_completo', 'tipo_perfil', 'departamento', 
+        'fecha_contratacion', 'antiguedad_display', 'puede_vacaciones', 
+        'dias_vacaciones_info', 'activo_status'
     ]
-    list_filter = ['departamento', 'activo', 'genero', 'estado_civil', 'fecha_ingreso']
-    search_fields = ['numero_empleado', 'nombre', 'apellido_paterno', 'apellido_materno', 'email']
-    readonly_fields = ['fecha_creacion', 'fecha_actualizacion', 'dias_vacaciones_disponibles', 'antiguedad_anos']
     
-    # Configuración de campos
+    list_filter = [
+        'tipo_perfil', 'departamento', 'activo', 'fecha_contratacion',
+        ('fecha_contratacion', admin.DateFieldListFilter),
+    ]
+    
+    search_fields = [
+        'usuario__username', 'usuario__first_name', 'usuario__last_name',
+        'numero_empleado', 'puesto', 'departamento__nombre'
+    ]
+    
+    readonly_fields = [
+        'antiguedad_display', 'puede_vacaciones', 'dias_vacaciones_info',
+        'fecha_creacion', 'fecha_actualizacion'
+    ]
+    
     fieldsets = (
-        ('👤 Información Personal', {
-            'fields': (
-                'numero_empleado', 
-                ('nombre', 'apellido_paterno', 'apellido_materno'),
-                ('fecha_nacimiento', 'genero', 'estado_civil'),
-                ('telefono', 'email'),
-                'direccion'
-            ),
-            'classes': ('wide', 'extrapretty'),
+        ('Información Personal', {
+            'fields': ('usuario', 'numero_empleado', 'tipo_perfil', 'activo')
         }),
-        ('🏢 Información Laboral', {
-            'fields': (
-                ('departamento', 'puesto'),
-                ('fecha_ingreso', 'salario'),
-                'supervisor'
-            ),
-            'classes': ('wide', 'extrapretty'),
+        ('Información Laboral', {
+            'fields': ('departamento', 'puesto', 'salario', 'supervisor')
         }),
-        ('🏖️ Gestión de Vacaciones', {
-            'fields': (
-                ('dias_vacaciones_anuales', 'dias_vacaciones_usados'),
-                'dias_vacaciones_disponibles'
-            ),
-            'classes': ('wide', 'extrapretty'),
+        ('Fechas Importantes', {
+            'fields': ('fecha_contratacion', 'fecha_nacimiento', 'antiguedad_display')
         }),
-        ('📊 Estado y Auditoría', {
-            'fields': (
-                'activo',
-                ('fecha_creacion', 'fecha_actualizacion'),
-                'antiguedad_anos'
-            ),
-            'classes': ('wide', 'extrapretty'),
+        ('Control de Vacaciones', {
+            'fields': ('puede_vacaciones', 'dias_vacaciones_anuales', 'dias_vacaciones_usados', 'dias_vacaciones_info'),
+            'classes': ('collapse',)
+        }),
+        ('Información de Contacto', {
+            'fields': ('telefono', 'direccion'),
+            'classes': ('collapse',)
+        }),
+        ('Auditoría', {
+            'fields': ('fecha_creacion', 'fecha_actualizacion'),
+            'classes': ('collapse',)
         }),
     )
     
-    # Campos personalizados para mostrar
-    def foto_perfil(self, obj):
-        """Muestra una foto de perfil con iniciales"""
-        iniciales = f"{obj.nombre[0]}{obj.apellido_paterno[0]}"
-        return format_html(
-            '<div style="width: 40px; height: 40px; background: linear-gradient(135deg, #3498db, #5dade2); '
-            'border-radius: 50%; display: flex; align-items: center; justify-content: center; '
-            'color: white; font-weight: bold; font-size: 14px;">{}</div>',
-            iniciales
-        )
-    foto_perfil.short_description = 'Foto'
+    ordering = ['usuario__last_name', 'usuario__first_name']
     
-    def estado_activo(self, obj):
-        """Muestra el estado con un indicador visual"""
-        if obj.activo:
-            return format_html(
-                '<span style="background: #27ae60; color: white; padding: 4px 8px; '
-                'border-radius: 12px; font-size: 12px; font-weight: bold;">✓ ACTIVO</span>'
-            )
+    def antiguedad_display(self, obj):
+        """Muestra la antigüedad de forma legible"""
+        anos = obj.antiguedad_anos
+        if anos == 0:
+            return format_html('<span style="color: orange;">Menos de 1 año</span>')
+        elif anos == 1:
+            return format_html('<span style="color: green;">1 año</span>')
         else:
-            return format_html(
-                '<span style="background: #e74c3c; color: white; padding: 4px 8px; '
-                'border-radius: 12px; font-size: 12px; font-weight: bold;">✗ INACTIVO</span>'
-            )
-    estado_activo.short_description = 'Estado'
+            return format_html('<span style="color: green;">{} años</span>', anos)
+    antiguedad_display.short_description = 'Antigüedad'
     
-    # Configuración de formulario
-    class Media:
-        css = {
-            'all': ('admin/css/custom_admin.css',)
-        }
-        js = ('admin/js/custom_admin.js',)
+    def puede_vacaciones(self, obj):
+        """Indica si el empleado puede solicitar vacaciones"""
+        if obj.antiguedad_anos >= 1:
+            return format_html('<span style="color: green;">✓ Puede solicitar</span>')
+        else:
+            dias_restantes = 365 - (date.today() - obj.fecha_contratacion).days
+            return format_html(
+                '<span style="color: orange;">✗ Falta {} días</span>', 
+                dias_restantes
+            )
+    puede_vacaciones.short_description = 'Puede Vacaciones'
+    
+    def dias_vacaciones_info(self, obj):
+        """Muestra información detallada de vacaciones"""
+        disponibles = obj.dias_vacaciones_disponibles
+        usados = obj.dias_vacaciones_usados
+        total = obj.dias_vacaciones_anuales
+        
+        if disponibles > 0:
+            color = 'green'
+        elif disponibles == 0:
+            color = 'orange'
+        else:
+            color = 'red'
+            
+        return format_html(
+            '<span style="color: {};">{} disponibles / {} usados / {} total</span>',
+            color, disponibles, usados, total
+        )
+    dias_vacaciones_info.short_description = 'Estado Vacaciones'
+    
+    def activo_status(self, obj):
+        """Muestra el estado activo con colores"""
+        if obj.activo:
+            return format_html('<span style="color: green;">✓ Activo</span>')
+        else:
+            return format_html('<span style="color: red;">✗ Inactivo</span>')
+    activo_status.short_description = 'Estado'
+    
+    def get_queryset(self, request):
+        """Optimizar consultas"""
+        return super().get_queryset(request).select_related(
+            'usuario', 'departamento', 'supervisor'
+        )
+    
+    actions = ['marcar_como_activos', 'marcar_como_inactivos', 'resetear_vacaciones']
+    
+    def marcar_como_activos(self, request, queryset):
+        """Marcar empleados seleccionados como activos"""
+        updated = queryset.update(activo=True)
+        self.message_user(request, f'{updated} empleados marcados como activos.')
+    marcar_como_activos.short_description = "Marcar como activos"
+    
+    def marcar_como_inactivos(self, request, queryset):
+        """Marcar empleados seleccionados como inactivos"""
+        updated = queryset.update(activo=False)
+        self.message_user(request, f'{updated} empleados marcados como inactivos.')
+    marcar_como_inactivos.short_description = "Marcar como inactivos"
+    
+    def resetear_vacaciones(self, request, queryset):
+        """Resetear días de vacaciones usados"""
+        updated = queryset.update(dias_vacaciones_usados=0)
+        self.message_user(request, f'Vacaciones reseteadas para {updated} empleados.')
+    resetear_vacaciones.short_description = "Resetear vacaciones"
 
 
-class VacacionAdminCustom(admin.ModelAdmin):
-    """Admin personalizado para Vacación con diseño mejorado"""
+@admin.register(Departamento)
+class DepartamentoAdmin(admin.ModelAdmin):
+    """Admin para gestión de departamentos"""
+    
+    list_display = ['nombre', 'jefe', 'empleados_count', 'activo']
+    list_filter = ['activo']
+    search_fields = ['nombre', 'descripcion']
+    ordering = ['nombre']
+
+
+@admin.register(SolicitudVacaciones)
+class SolicitudVacacionesAdmin(admin.ModelAdmin):
+    """Admin para gestión de solicitudes de vacaciones"""
     
     list_display = [
-        'empleado_info', 'periodo_vacaciones', 'dias_solicitados', 
-        'estado_badge', 'fecha_solicitud', 'motivo_corto'
+        'empleado', 'fecha_inicio', 'fecha_fin', 'dias_solicitados',
+        'tipo', 'estado', 'fecha_solicitud'
     ]
-    list_filter = ['estado', 'fecha_solicitud', 'empleado__departamento']
-    search_fields = ['empleado__nombre', 'empleado__apellido_paterno', 'empleado__apellido_materno']
+    
+    list_filter = [
+        'estado', 'tipo', 'fecha_solicitud',
+        ('fecha_solicitud', admin.DateFieldListFilter),
+    ]
+    
+    search_fields = [
+        'empleado__usuario__username', 'empleado__usuario__first_name',
+        'empleado__usuario__last_name', 'empleado__numero_empleado'
+    ]
+    
     readonly_fields = ['fecha_solicitud', 'dias_solicitados']
     
     fieldsets = (
-        ('📋 Información de la Solicitud', {
-            'fields': (
-                'empleado',
-                ('fecha_inicio', 'fecha_fin'),
-                'dias_solicitados',
-                'motivo'
-            ),
-            'classes': ('wide', 'extrapretty'),
+        ('Información de la Solicitud', {
+            'fields': ('empleado', 'fecha_inicio', 'fecha_fin', 'dias_solicitados', 'tipo', 'motivo')
         }),
-        ('✅ Estado y Aprobación', {
-            'fields': (
-                'estado',
-                'comentarios_rh',
-                ('fecha_aprobacion', 'aprobado_por')
-            ),
-            'classes': ('wide', 'extrapretty'),
+        ('Estado y Aprobaciones', {
+            'fields': ('estado', 'aprobado_por_jefe', 'aprobado_por_rh')
         }),
-        ('📅 Auditoría', {
-            'fields': ('fecha_solicitud',),
-            'classes': ('wide', 'extrapretty'),
+        ('Comentarios', {
+            'fields': ('comentarios_jefe', 'comentarios_rh')
+        }),
+        ('Fechas', {
+            'fields': ('fecha_solicitud', 'fecha_aprobacion_jefe', 'fecha_aprobacion_rh')
         }),
     )
     
-    def empleado_info(self, obj):
-        """Información del empleado con foto"""
-        iniciales = f"{obj.empleado.nombre[0]}{obj.empleado.apellido_paterno[0]}"
-        return format_html(
-            '<div style="display: flex; align-items: center;">'
-            '<div style="width: 30px; height: 30px; background: linear-gradient(135deg, #3498db, #5dade2); '
-            'border-radius: 50%; display: flex; align-items: center; justify-content: center; '
-            'color: white; font-weight: bold; font-size: 12px; margin-right: 10px;">{}</div>'
-            '<div><strong>{}</strong><br><small style="color: #666;">{}</small></div>'
-            '</div>',
-            iniciales,
-            obj.empleado.nombre_completo,
-            obj.empleado.puesto
-        )
-    empleado_info.short_description = 'Empleado'
-    
-    def periodo_vacaciones(self, obj):
-        """Período de vacaciones formateado"""
-        return format_html(
-            '<strong>{} - {}</strong>',
-            obj.fecha_inicio.strftime('%d/%m/%Y'),
-            obj.fecha_fin.strftime('%d/%m/%Y')
-        )
-    periodo_vacaciones.short_description = 'Período'
-    
-    def estado_badge(self, obj):
-        """Estado con badge colorido"""
-        colores = {
-            'P': ('#f39c12', 'PENDIENTE'),
-            'A': ('#27ae60', 'APROBADA'),
-            'R': ('#e74c3c', 'RECHAZADA'),
-            'C': ('#95a5a6', 'CANCELADA')
-        }
-        color, texto = colores.get(obj.estado, ('#95a5a6', 'DESCONOCIDO'))
-        return format_html(
-            '<span style="background: {}; color: white; padding: 4px 8px; '
-            'border-radius: 12px; font-size: 12px; font-weight: bold;">{}</span>',
-            color, texto
-        )
-    estado_badge.short_description = 'Estado'
-    
-    def motivo_corto(self, obj):
-        """Motivo truncado"""
-        if obj.motivo:
-            return obj.motivo[:50] + '...' if len(obj.motivo) > 50 else obj.motivo
-        return 'Sin motivo especificado'
-    motivo_corto.short_description = 'Motivo'
-    
-    class Media:
-        css = {
-            'all': ('admin/css/custom_admin.css',)
-        }
+    ordering = ['-fecha_solicitud']
 
 
-class DepartamentoAdminCustom(admin.ModelAdmin):
-    """Admin personalizado para Departamento"""
+@admin.register(ConfiguracionSistema)
+class ConfiguracionSistemaAdmin(admin.ModelAdmin):
+    """Admin para configuraciones del sistema"""
     
-    list_display = ['nombre', 'descripcion', 'numero_empleados']
+    list_display = ['nombre', 'valor', 'descripcion']
     search_fields = ['nombre', 'descripcion']
-    
-    def numero_empleados(self, obj):
-        """Número de empleados en el departamento"""
-        count = obj.empleado_set.filter(activo=True).count()
-        return format_html(
-            '<span style="background: #3498db; color: white; padding: 4px 8px; '
-            'border-radius: 12px; font-size: 12px; font-weight: bold;">{} empleados</span>',
-            count
-        )
-    numero_empleados.short_description = 'Empleados Activos'
-    
-    class Media:
-        css = {
-            'all': ('admin/css/custom_admin.css',)
-        }
 
 
-# Configuración del sitio de administración
-admin.site.site_header = "🏢 Sistema de Recursos Humanos"
+# Personalizar el admin de Django
+admin.site.site_header = "Sistema de Recursos Humanos - Grupo Keila"
 admin.site.site_title = "RH Admin"
 admin.site.index_title = "Panel de Administración"
-
-# Registrar los modelos con el admin personalizado
-admin.site.register(Departamento, DepartamentoAdminCustom)
-admin.site.register(Empleado, EmpleadoAdminCustom)
-admin.site.register(Vacacion, VacacionAdminCustom)

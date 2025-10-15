@@ -1,0 +1,168 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Gestión de Usuarios{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2><i class="fas fa-users me-2"></i>Gestión de Usuarios</h2>
+                <div>
+                    <a href="{% url 'empleados:crear_usuario' %}" class="btn btn-primary">
+                        <i class="fas fa-plus me-1"></i>Crear Usuario
+                    </a>
+                    <a href="{% url 'empleados:rh_dashboard' %}" class="btn btn-outline-secondary">
+                        <i class="fas fa-arrow-left me-1"></i>Volver al Dashboard
+                    </a>
+                </div>
+            </div>
+
+            <!-- Filtros -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-filter me-2"></i>Filtros de Búsqueda</h5>
+                </div>
+                <div class="card-body">
+                    <form method="get" class="row g-3">
+                        <div class="col-md-3">
+                            <label for="busqueda" class="form-label">Buscar</label>
+                            <input type="text" class="form-control" id="busqueda" name="busqueda" 
+                                   value="{{ busqueda_actual }}" placeholder="Nombre, usuario, número...">
+                        </div>
+                        <div class="col-md-3">
+                            <label for="tipo_perfil" class="form-label">Tipo de Perfil</label>
+                            <select class="form-select" id="tipo_perfil" name="tipo_perfil">
+                                <option value="">Todos</option>
+                                <option value="EMPLEADO" {% if tipo_actual == 'EMPLEADO' %}selected{% endif %}>Empleado</option>
+                                <option value="JEFE_AREA" {% if tipo_actual == 'JEFE_AREA' %}selected{% endif %}>Jefe de Área</option>
+                                <option value="RH" {% if tipo_actual == 'RH' %}selected{% endif %}>Recursos Humanos</option>
+                                <option value="ADMIN" {% if tipo_actual == 'ADMIN' %}selected{% endif %}>Administrador</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label for="departamento" class="form-label">Departamento</label>
+                            <select class="form-select" id="departamento" name="departamento">
+                                <option value="">Todos</option>
+                                {% for dept in departamentos %}
+                                    <option value="{{ dept.id }}" {% if departamento_actual == dept.id|stringformat:"s" %}selected{% endif %}>
+                                        {{ dept.nombre }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">&nbsp;</label>
+                            <div class="d-grid">
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-search me-1"></i>Filtrar
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Lista de usuarios -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-list me-2"></i>Usuarios 
+                        <span class="badge bg-secondary">{{ usuarios.count }}</span>
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if usuarios %}
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Usuario</th>
+                                        <th>Número</th>
+                                        <th>Perfil</th>
+                                        <th>Departamento</th>
+                                        <th>Puesto</th>
+                                        <th>Antigüedad</th>
+                                        <th>Estado</th>
+                                        <th>Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for usuario in usuarios %}
+                                        <tr>
+                                            <td>
+                                                <div class="d-flex align-items-center">
+                                                    <div class="avatar-sm bg-primary text-white rounded-circle d-flex align-items-center justify-content-center me-2">
+                                                        {{ usuario.usuario.first_name|first|default:usuario.usuario.username|first|upper }}
+                                                    </div>
+                                                    <div>
+                                                        <strong>{{ usuario.nombre_completo }}</strong>
+                                                        <br>
+                                                        <small class="text-muted">{{ usuario.usuario.username }}</small>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td>
+                                                <span class="badge bg-light text-dark">{{ usuario.numero_empleado }}</span>
+                                            </td>
+                                            <td>
+                                                <span class="badge bg-{% if usuario.tipo_perfil == 'ADMIN' %}danger{% elif usuario.tipo_perfil == 'RH' %}info{% elif usuario.tipo_perfil == 'JEFE_AREA' %}warning{% else %}secondary{% endif %}">
+                                                    {{ usuario.get_tipo_perfil_display }}
+                                                </span>
+                                            </td>
+                                            <td>{{ usuario.departamento.nombre|default:"Sin asignar" }}</td>
+                                            <td>{{ usuario.puesto }}</td>
+                                            <td>
+                                                {% if usuario.antiguedad_anos >= 1 %}
+                                                    <span class="text-success">{{ usuario.antiguedad_anos }} año{{ usuario.antiguedad_anos|pluralize }}</span>
+                                                {% else %}
+                                                    <span class="text-warning">{{ usuario.antiguedad_anos }} año{{ usuario.antiguedad_anos|pluralize }}</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                {% if usuario.activo %}
+                                                    <span class="badge bg-success">Activo</span>
+                                                {% else %}
+                                                    <span class="badge bg-danger">Inactivo</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                <div class="btn-group" role="group">
+                                                    <a href="{% url 'empleados:editar_perfil' usuario.id %}" 
+                                                       class="btn btn-sm btn-outline-primary" title="Editar">
+                                                        <i class="fas fa-edit"></i>
+                                                    </a>
+                                                    <a href="{% url 'admin:empleados_perfil_change' usuario.id %}" 
+                                                       class="btn btn-sm btn-outline-info" title="Admin" target="_blank">
+                                                        <i class="fas fa-cog"></i>
+                                                    </a>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="text-center py-5">
+                            <i class="fas fa-users fa-3x text-muted mb-3"></i>
+                            <h5 class="text-muted">No se encontraron usuarios</h5>
+                            <p class="text-muted">Intenta ajustar los filtros de búsqueda</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.avatar-sm {
+    width: 32px;
+    height: 32px;
+    font-size: 14px;
+    font-weight: bold;
+}
+</style>
+{% endblock %}

@@ -1,0 +1,48 @@
+# Entornos virtuales
+.venv/
+venv/
+env/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Bases de datos locales
+*.sqlite3
+*.db
+
+# Logs
+logs/
+*.log
+
+# Archivos del sistema
+.DS_Store
+.AppleDouble
+.LSOverride
+Thumbs.db
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Archivos de respaldo
+*_BACKUP/
+backup_original/
+*.BACKUP
+
+# Archivos estáticos compilados
+staticfiles/
+public/
+
+# Migraciones temporales (opcional, según tu flujo)
+# migrations/
+
+# Variables de entorno
+.env
+.env.local
+

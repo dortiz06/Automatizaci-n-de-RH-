@@ -1,0 +1,259 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Solicitar Vacaciones{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2><i class="fas fa-calendar-plus me-2"></i>Solicitar Vacaciones</h2>
+                <a href="{% url 'empleados:empleado_dashboard' %}" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left me-1"></i>Volver al Dashboard
+                </a>
+            </div>
+
+            <!-- Información del empleado -->
+            <div class="row mb-4">
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0"><i class="fas fa-user me-2"></i>Información Personal</h5>
+                        </div>
+                        <div class="card-body">
+                            <p><strong>Nombre:</strong> {{ perfil.nombre_completo }}</p>
+                            <p><strong>Número de Empleado:</strong> {{ perfil.numero_empleado }}</p>
+                            <p><strong>Departamento:</strong> {{ perfil.departamento.nombre|default:"Sin asignar" }}</p>
+                            <p><strong>Puesto:</strong> {{ perfil.puesto }}</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0"><i class="fas fa-calendar-alt me-2"></i>Estado de Vacaciones</h5>
+                        </div>
+                        <div class="card-body">
+                            <p><strong>Antigüedad:</strong> 
+                                {% if perfil.antiguedad_anos >= 1 %}
+                                    <span class="text-success">{{ perfil.antiguedad_anos }} año{{ perfil.antiguedad_anos|pluralize }}</span>
+                                {% else %}
+                                    <span class="text-warning">{{ perfil.antiguedad_anos }} año{{ perfil.antiguedad_anos|pluralize }}</span>
+                                {% endif %}
+                            </p>
+                            <p><strong>Días Anuales:</strong> {{ perfil.dias_vacaciones_anuales }}</p>
+                            <p><strong>Días Usados:</strong> {{ perfil.dias_vacaciones_usados }}</p>
+                            <p><strong>Días Disponibles:</strong> 
+                                {% if perfil.dias_vacaciones_disponibles > 0 %}
+                                    <span class="text-success">{{ perfil.dias_vacaciones_disponibles }}</span>
+                                {% else %}
+                                    <span class="text-danger">{{ perfil.dias_vacaciones_disponibles }}</span>
+                                {% endif %}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Formulario de solicitud -->
+            <div class="row">
+                <div class="col-lg-8">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0"><i class="fas fa-edit me-2"></i>Nueva Solicitud de Vacaciones</h5>
+                        </div>
+                        <div class="card-body">
+                            {% if messages %}
+                                {% for message in messages %}
+                                    <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                                        {{ message }}
+                                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                                    </div>
+                                {% endfor %}
+                            {% endif %}
+
+                            <form method="post" id="solicitudForm">
+                                {% csrf_token %}
+                                
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label for="{{ form.fecha_inicio.id_for_label }}" class="form-label">
+                                                <i class="fas fa-calendar me-1"></i>{{ form.fecha_inicio.label }}
+                                            </label>
+                                            {{ form.fecha_inicio }}
+                                            {% if form.fecha_inicio.errors %}
+                                                <div class="text-danger">
+                                                    {% for error in form.fecha_inicio.errors %}
+                                                        <small>{{ error }}</small>
+                                                    {% endfor %}
+                                                </div>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label for="{{ form.fecha_fin.id_for_label }}" class="form-label">
+                                                <i class="fas fa-calendar me-1"></i>{{ form.fecha_fin.label }}
+                                            </label>
+                                            {{ form.fecha_fin }}
+                                            {% if form.fecha_fin.errors %}
+                                                <div class="text-danger">
+                                                    {% for error in form.fecha_fin.errors %}
+                                                        <small>{{ error }}</small>
+                                                    {% endfor %}
+                                                </div>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label for="{{ form.tipo.id_for_label }}" class="form-label">
+                                        <i class="fas fa-tag me-1"></i>{{ form.tipo.label }}
+                                    </label>
+                                    {{ form.tipo }}
+                                    {% if form.tipo.help_text %}
+                                        <div class="form-text">{{ form.tipo.help_text }}</div>
+                                    {% endif %}
+                                    {% if form.tipo.errors %}
+                                        <div class="text-danger">
+                                            {% for error in form.tipo.errors %}
+                                                <small>{{ error }}</small>
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+
+                                <div class="mb-3">
+                                    <label for="{{ form.motivo.id_for_label }}" class="form-label">
+                                        <i class="fas fa-comment me-1"></i>{{ form.motivo.label }}
+                                    </label>
+                                    {{ form.motivo }}
+                                    {% if form.motivo.errors %}
+                                        <div class="text-danger">
+                                            {% for error in form.motivo.errors %}
+                                                <small>{{ error }}</small>
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+
+                                <!-- Información adicional -->
+                                {% if perfil.antiguedad_anos < 1 %}
+                                    <div class="alert alert-warning">
+                                        <i class="fas fa-exclamation-triangle me-2"></i>
+                                        <strong>Atención:</strong> Como tienes menos de 1 año de antigüedad, solo puedes solicitar vacaciones extraordinarias.
+                                    </div>
+                                {% endif %}
+
+                                {% if perfil.dias_vacaciones_disponibles <= 0 %}
+                                    <div class="alert alert-danger">
+                                        <i class="fas fa-exclamation-circle me-2"></i>
+                                        <strong>Sin días disponibles:</strong> No tienes días de vacaciones disponibles.
+                                    </div>
+                                {% endif %}
+
+                                <div class="d-flex justify-content-between">
+                                    <a href="{% url 'empleados:empleado_dashboard' %}" class="btn btn-secondary">
+                                        <i class="fas fa-times me-1"></i>Cancelar
+                                    </a>
+                                    <button type="submit" class="btn btn-primary" 
+                                            {% if perfil.dias_vacaciones_disponibles <= 0 and perfil.antiguedad_anos >= 1 %}disabled{% endif %}>
+                                        <i class="fas fa-paper-plane me-1"></i>Enviar Solicitud
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Panel lateral con información -->
+                <div class="col-lg-4">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0"><i class="fas fa-info-circle me-2"></i>Información Importante</h5>
+                        </div>
+                        <div class="card-body">
+                            <h6>Política de Vacaciones:</h6>
+                            <ul class="list-unstyled">
+                                <li><i class="fas fa-check text-success me-2"></i>Vacaciones normales: 1+ año de antigüedad</li>
+                                <li><i class="fas fa-check text-warning me-2"></i>Vacaciones extraordinarias: < 1 año</li>
+                                <li><i class="fas fa-clock text-info me-2"></i>Proceso de aprobación: Jefe → RH</li>
+                            </ul>
+
+                            <h6 class="mt-3">Solicitudes Recientes:</h6>
+                            {% if solicitudes_recientes %}
+                                {% for solicitud in solicitudes_recientes|slice:":3" %}
+                                    <div class="border-bottom py-2">
+                                        <small class="text-muted">{{ solicitud.fecha_inicio|date:"d/m/Y" }} - {{ solicitud.fecha_fin|date:"d/m/Y" }}</small>
+                                        <br>
+                                        <span class="badge bg-{% if solicitud.estado == 'APROBADO_RH' %}success{% elif solicitud.estado == 'RECHAZADO_RH' or solicitud.estado == 'RECHAZADO_JEFE' %}danger{% else %}warning{% endif %}">
+                                            {{ solicitud.get_estado_display }}
+                                        </span>
+                                    </div>
+                                {% endfor %}
+                            {% else %}
+                                <p class="text-muted">No hay solicitudes recientes</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const fechaInicio = document.getElementById('{{ form.fecha_inicio.id_for_label }}');
+    const fechaFin = document.getElementById('{{ form.fecha_fin.id_for_label }}');
+    
+    // Calcular días automáticamente
+    function calcularDias() {
+        if (fechaInicio.value && fechaFin.value) {
+            const inicio = new Date(fechaInicio.value);
+            const fin = new Date(fechaFin.value);
+            const diffTime = Math.abs(fin - inicio);
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+            
+            // Mostrar información de días
+            let infoDiv = document.getElementById('dias-info');
+            if (!infoDiv) {
+                infoDiv = document.createElement('div');
+                infoDiv.id = 'dias-info';
+                infoDiv.className = 'alert alert-info mt-2';
+                fechaFin.parentNode.appendChild(infoDiv);
+            }
+            infoDiv.innerHTML = `<i class="fas fa-info-circle me-1"></i>Días solicitados: <strong>${diffDays}</strong>`;
+        }
+    }
+    
+    fechaInicio.addEventListener('change', calcularDias);
+    fechaFin.addEventListener('change', calcularDias);
+    
+    // Validación del formulario
+    document.getElementById('solicitudForm').addEventListener('submit', function(e) {
+        if (fechaInicio.value && fechaFin.value) {
+            const inicio = new Date(fechaInicio.value);
+            const fin = new Date(fechaFin.value);
+            const hoy = new Date();
+            hoy.setHours(0, 0, 0, 0);
+            
+            if (inicio < hoy) {
+                e.preventDefault();
+                alert('No puedes solicitar vacaciones para fechas pasadas.');
+                return false;
+            }
+            
+            if (fin < inicio) {
+                e.preventDefault();
+                alert('La fecha de fin debe ser posterior a la fecha de inicio.');
+                return false;
+            }
+        }
+    });
+});
+</script>
+{% endblock %}

@@ -1,6 +1,6 @@
 {% extends 'base.html' %}
 {% load static %}
-
+{% csrf_token %} 
 {% block title %}Recursos Humanos{% endblock %}
 
 {% block content %}
@@ -27,6 +27,7 @@
 
                     <form method="post" id="loginForm" novalidate>
                         {% csrf_token %}
+                        <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}">
                         <div class="mb-3 form-field">
                             <label for="username" class="form-label">
                                 <i class="fas fa-user me-2"></i>Usuario
@@ -348,6 +349,34 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         }, 5000);
     });
+});
+
+// Configuración CSRF para AJAX
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+// Asegurar que el token CSRF esté disponible
+document.addEventListener('DOMContentLoaded', function() {
+    const csrfToken = getCookie('csrftoken');
+    if (csrfToken) {
+        // Actualizar el valor del token en el formulario
+        const csrfInput = document.querySelector('input[name="csrfmiddlewaretoken"]');
+        if (csrfInput) {
+            csrfInput.value = csrfToken;
+        }
+    }
 });
 </script>
 {% endblock %}
