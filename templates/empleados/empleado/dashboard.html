@@ -38,20 +38,22 @@
         
         {% if perfil.antiguedad_anos >= 1 %}
         <div class="row">
+            {% if perfil.mostrar_seccion_ano_anterior %}
             <div class="col-md-4">
                 <div class="p-2 bg-white rounded">
                     <small class="text-muted">Año Anterior</small>
                     <div class="h5 mb-0 text-primary">{{ perfil.dias_vacaciones_acumulados }} días</div>
                 </div>
             </div>
-            <div class="col-md-4">
+            {% endif %}
+            <div class="{% if perfil.mostrar_seccion_ano_anterior %}col-md-4{% else %}col-md-6{% endif %}">
                 <div class="p-2 bg-white rounded">
                     <small class="text-muted">Acumulado Este Año (hasta hoy)</small>
                     <div class="h5 mb-0 text-success">{{ perfil.calcular_dias_acumulados_hasta_hoy }} días</div>
                     <small class="text-muted">({{ perfil.calcular_acumulacion_mensual }} días/mes)</small>
                 </div>
             </div>
-            <div class="col-md-4">
+            <div class="{% if perfil.mostrar_seccion_ano_anterior %}col-md-4{% else %}col-md-6{% endif %}">
                 <div class="p-2 bg-white rounded">
                     <small class="text-muted">Total Proyectado Disponible</small>
                     <div class="h5 mb-0 text-info">{{ perfil.calcular_total_disponible_proyectado }} días</div>

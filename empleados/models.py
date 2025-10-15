@@ -232,6 +232,7 @@ class Perfil(models.Model):
     
     def calcular_dias_acumulados_hasta_hoy(self):
         """Calcula cuántos días ha acumulado hasta el día de hoy en el año actual"""
+        import math
         from datetime import date
         
         if not self.fecha_contratacion:
@@ -239,7 +240,7 @@ class Perfil(models.Model):
         
         # Para empleados con menos de 1 año, usar el cálculo proporcional total
         if self.antiguedad_anos < 1:
-            return int(self.dias_vacaciones_segun_antiguedad)
+            return math.floor(self.dias_vacaciones_segun_antiguedad)
         
         # Para empleados con 1+ años, calcular desde su aniversario
         hoy = date.today()
@@ -264,12 +265,15 @@ class Perfil(models.Model):
         dias_por_mes = dias_anuales_actuales / 12
         
         # Días acumulados (proporcional a meses desde aniversario)
+        # REDONDEO HACIA ABAJO (floor)
         dias_acumulados = dias_por_mes * meses_desde_aniversario
         
-        return int(dias_acumulados)
+        return math.floor(dias_acumulados)
     
     def calcular_total_disponible_proyectado(self):
         """Calcula total de días disponibles: año anterior + acumulado este año - usados"""
+        import math
+        
         if not self.fecha_contratacion:
             return 0
         
@@ -282,10 +286,16 @@ class Perfil(models.Model):
         # Días ya usados este año
         dias_usados = self.dias_vacaciones_usados
         
-        # Total disponible proyectado
+        # Total disponible proyectado (redondeo hacia abajo)
         total = dias_ano_anterior + dias_acumulados_hoy - dias_usados
         
-        return int(total)
+        return math.floor(total)
+    
+    @property
+    def mostrar_seccion_ano_anterior(self):
+        """Determina si mostrar la sección de año anterior en el dashboard"""
+        # Solo mostrar si tiene 2+ años de antigüedad
+        return self.antiguedad_anos >= 2
     
     def procesar_acumulacion_mensual(self):
         """Procesa la acumulación mensual de vacaciones"""
