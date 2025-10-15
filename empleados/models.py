@@ -1,7 +1,7 @@
 from django.db import models
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.contrib.auth import get_user_model
-from datetime import date
+from datetime import date, timedelta
 
 User = get_user_model()
 
@@ -271,11 +271,27 @@ class SolicitudVacaciones(models.Model):
     def __str__(self):
         return f"{self.empleado.nombre_completo} - {self.fecha_inicio} a {self.fecha_fin}"
     
+    @staticmethod
+    def calcular_dias_laborables(fecha_inicio, fecha_fin):
+        """Calcula días laborables excluyendo domingos"""
+        if not fecha_inicio or not fecha_fin:
+            return 0
+        
+        dias_totales = 0
+        fecha_actual = fecha_inicio
+        
+        while fecha_actual <= fecha_fin:
+            # weekday() retorna 0=Lunes, 6=Domingo
+            if fecha_actual.weekday() != 6:  # 6 = Domingo
+                dias_totales += 1
+            fecha_actual += timedelta(days=1)
+        
+        return dias_totales
+    
     def save(self, *args, **kwargs):
-        # Calcular días solicitados automáticamente
+        # Calcular días solicitados automáticamente (excluyendo domingos)
         if self.fecha_inicio and self.fecha_fin:
-            delta = self.fecha_fin - self.fecha_inicio
-            self.dias_solicitados = delta.days + 1
+            self.dias_solicitados = self.calcular_dias_laborables(self.fecha_inicio, self.fecha_fin)
         super().save(*args, **kwargs)
     
     def puede_ser_aprobada_por_jefe(self):

@@ -2,6 +2,7 @@ from django import forms
 from django.contrib.auth.models import User
 from django.contrib.auth.forms import UserCreationForm
 from django.utils import timezone
+from datetime import timedelta
 from .models import Perfil, Departamento, SolicitudVacaciones
 
 
@@ -170,14 +171,19 @@ class SolicitudVacacionesForm(forms.ModelForm):
             if fecha_inicio < hoy:
                 raise forms.ValidationError('No puedes solicitar vacaciones para fechas pasadas.')
             
-            # Calcular días solicitados
-            dias_solicitados = (fecha_fin - fecha_inicio).days + 1
+            # Calcular días solicitados (excluyendo domingos)
+            dias_solicitados = SolicitudVacaciones.calcular_dias_laborables(fecha_inicio, fecha_fin)
+            
+            # Contar cuántos domingos hay en el rango
+            dias_calendario = (fecha_fin - fecha_inicio).days + 1
+            domingos_excluidos = dias_calendario - dias_solicitados
             
             # Validar días disponibles
             if self.empleado and dias_solicitados > self.empleado.dias_vacaciones_disponibles:
                 raise forms.ValidationError(
                     f'No tienes suficientes días de vacaciones disponibles. '
-                    f'Disponibles: {self.empleado.dias_vacaciones_disponibles} días'
+                    f'Disponibles: {self.empleado.dias_vacaciones_disponibles} días. '
+                    f'Solicitaste: {dias_solicitados} días laborables ({dias_calendario} días totales - {domingos_excluidos} domingos)'
                 )
         
         return cleaned_data
