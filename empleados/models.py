@@ -56,6 +56,9 @@ class Perfil(models.Model):
     @property
     def dias_vacaciones_segun_antiguedad(self):
         """Calcula días de vacaciones según tabla de antigüedad"""
+        if not self.fecha_contratacion:
+            return 0  # Sin fecha de contratación
+        
         anos = self.antiguedad_anos
         
         if anos < 1:
