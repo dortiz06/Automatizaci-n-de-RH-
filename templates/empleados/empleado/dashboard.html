@@ -20,7 +20,7 @@
         </div>
     </div>
     
-    <!-- Información de elegibilidad -->
+    <!-- Información de elegibilidad y acumulación -->
     {% if perfil.antiguedad_anos < 1 %}
         <div class="alert alert-warning">
             <i class="fas fa-exclamation-triangle me-2"></i>
@@ -28,6 +28,20 @@
             Solo puedes solicitar vacaciones extraordinarias hasta cumplir 1 año.
         </div>
     {% endif %}
+    
+    <!-- Mostrar días acumulados hasta hoy -->
+    <div class="alert alert-info">
+        <i class="fas fa-info-circle me-2"></i>
+        <strong>Días Acumulados hasta Hoy:</strong> {{ perfil.calcular_dias_acumulados_hasta_hoy }} días
+        <br>
+        <small class="text-muted">
+            Según tu antigüedad ({{ perfil.antiguedad_anos }} año{{ perfil.antiguedad_anos|pluralize }}), 
+            acumulas {{ perfil.calcular_acumulacion_mensual }} días por mes.
+            {% if perfil.antiguedad_anos >= 1 %}
+                Al finalizar el año tendrás {{ perfil.dias_vacaciones_segun_antiguedad }} días disponibles.
+            {% endif %}
+        </small>
+    </div>
     
     <div class="row">
         <div class="col-md-3">
