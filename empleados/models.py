@@ -53,6 +53,35 @@ class Perfil(models.Model):
     def nombre_completo(self):
         return self.usuario.get_full_name() or self.usuario.username
     
+    def calcular_dias_segun_ano_laboral(self, ano_laboral):
+        """Calcula días según el año laboral específico (1, 2, 3, etc.)"""
+        if ano_laboral < 1:
+            return 12  # Año 1 por defecto
+        elif ano_laboral == 1:
+            return 12
+        elif ano_laboral == 2:
+            return 14
+        elif ano_laboral == 3:
+            return 16
+        elif ano_laboral == 4:
+            return 18
+        elif ano_laboral == 5:
+            return 20
+        elif 6 <= ano_laboral <= 10:
+            return 22
+        elif 11 <= ano_laboral <= 15:
+            return 24
+        elif 16 <= ano_laboral <= 20:
+            return 26
+        elif 21 <= ano_laboral <= 25:
+            return 28
+        elif 26 <= ano_laboral <= 30:
+            return 30
+        elif ano_laboral >= 31:
+            return 32
+        else:
+            return 12
+    
     @property
     def dias_vacaciones_segun_antiguedad(self):
         """Calcula días de vacaciones según tabla de antigüedad"""
@@ -194,9 +223,11 @@ class Perfil(models.Model):
     def calcular_acumulacion_mensual(self):
         """Calcula cuántos días acumula por mes según su antigüedad"""
         if self.antiguedad_anos < 1:
-            return 0  # Los empleados nuevos no acumulan mensualmente
+            return 1.0  # Primer año: 12/12 = 1 día por mes
         
-        dias_anuales = self.dias_vacaciones_segun_antiguedad
+        # Usar el año laboral actual (antiguedad + 1 porque está en ese año)
+        ano_laboral_actual = self.antiguedad_anos + 1
+        dias_anuales = self.calcular_dias_segun_ano_laboral(ano_laboral_actual)
         return round(dias_anuales / 12, 2)  # Días por mes redondeado a 2 decimales
     
     def calcular_dias_acumulados_hasta_hoy(self):
@@ -214,6 +245,9 @@ class Perfil(models.Model):
         hoy = date.today()
         fecha_aniversario = date(hoy.year, self.fecha_contratacion.month, self.fecha_contratacion.day)
         
+        # Determinar el año laboral actual (antiguedad + 1)
+        ano_laboral_actual = self.antiguedad_anos + 1
+        
         # Si el aniversario ya pasó este año, calcular desde el aniversario
         if hoy >= fecha_aniversario:
             # Calcular meses desde el aniversario
@@ -221,11 +255,12 @@ class Perfil(models.Model):
             if hoy.day >= fecha_aniversario.day:
                 meses_desde_aniversario += 1
         else:
-            # El aniversario aún no llega, calcular desde enero
+            # El aniversario aún no llega, seguimos en el año laboral anterior
+            ano_laboral_actual = self.antiguedad_anos
             meses_desde_aniversario = hoy.month
         
-        # Calcular días correspondientes al año actual (según antigüedad)
-        dias_anuales_actuales = self.dias_vacaciones_segun_antiguedad
+        # Calcular días correspondientes al año laboral actual
+        dias_anuales_actuales = self.calcular_dias_segun_ano_laboral(ano_laboral_actual)
         dias_por_mes = dias_anuales_actuales / 12
         
         # Días acumulados (proporcional a meses desde aniversario)
