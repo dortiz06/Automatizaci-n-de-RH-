@@ -272,31 +272,49 @@ class Perfil(models.Model):
         return math.floor(dias_acumulados)
     
     def calcular_total_disponible_proyectado(self):
-        """Calcula total de días disponibles: año anterior + acumulado este año - usados"""
+        """Calcula total de días disponibles: año anterior completado + acumulado este año - usados"""
         import math
         
         if not self.fecha_contratacion:
             return 0
         
-        # Días acumulados del año anterior (si existen)
-        dias_ano_anterior = self.dias_vacaciones_acumulados
+        # Para empleados con menos de 1 año
+        if self.antiguedad_anos < 1:
+            return math.floor(self.dias_vacaciones_segun_antiguedad - self.dias_vacaciones_usados)
         
-        # Días acumulados hasta hoy en el año actual
-        dias_acumulados_hoy = self.calcular_dias_acumulados_hasta_hoy()
+        # Para empleados con 1+ años:
+        # Días del año laboral anterior completado (ej: año 1 = 12 días si está en año 2)
+        ano_laboral_anterior = self.antiguedad_anos
+        dias_ano_anterior_completado = self.calcular_dias_segun_ano_laboral(ano_laboral_anterior)
         
-        # Días ya usados este año
+        # Días acumulados hasta hoy en el año laboral actual (ej: año 2 = 3 días de 14)
+        dias_acumulados_ano_actual = self.calcular_dias_acumulados_hasta_hoy()
+        
+        # Días ya usados
         dias_usados = self.dias_vacaciones_usados
         
-        # Total disponible proyectado (redondeo hacia abajo)
-        total = dias_ano_anterior + dias_acumulados_hoy - dias_usados
+        # Total = Año anterior completo + Acumulado año actual - Usados
+        # Ejemplo: 12 (año 1) + 3 (acumulado año 2) - 8 (usados) = 7 días
+        total = dias_ano_anterior_completado + dias_acumulados_ano_actual - dias_usados
         
         return math.floor(total)
     
     @property
     def mostrar_seccion_ano_anterior(self):
         """Determina si mostrar la sección de año anterior en el dashboard"""
-        # Solo mostrar si tiene 2+ años de antigüedad
-        return self.antiguedad_anos >= 2
+        # Mostrar si tiene 1+ años de antigüedad (para mostrar año completado)
+        return self.antiguedad_anos >= 1
+    
+    @property
+    def dias_ano_anterior_completado(self):
+        """Retorna los días del año laboral anterior completado"""
+        if self.antiguedad_anos < 1:
+            return 0
+        
+        # Año laboral anterior = antiguedad actual
+        # Ejemplo: si tiene 1 año, el año anterior fue el año 1 = 12 días
+        ano_laboral_anterior = self.antiguedad_anos
+        return self.calcular_dias_segun_ano_laboral(ano_laboral_anterior)
     
     @property
     def dias_al_finalizar_ano_actual(self):
