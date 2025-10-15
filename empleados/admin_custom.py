@@ -81,6 +81,9 @@ class PerfilAdmin(admin.ModelAdmin):
     
     def puede_vacaciones(self, obj):
         """Indica si el empleado puede solicitar vacaciones"""
+        if not obj.fecha_contratacion:
+            return format_html('<span style="color: gray;">Sin fecha</span>')
+        
         if obj.antiguedad_anos >= 1:
             return format_html('<span style="color: green;">✓ Puede solicitar</span>')
         else:
