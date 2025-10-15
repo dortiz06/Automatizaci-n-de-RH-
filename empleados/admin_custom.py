@@ -40,10 +40,20 @@ class PerfilAdmin(admin.ModelAdmin):
             'fields': ('departamento', 'puesto', 'salario', 'supervisor')
         }),
         ('Fechas Importantes', {
-            'fields': ('fecha_contratacion', 'fecha_nacimiento', 'antiguedad_display')
+            'fields': ('fecha_contratacion', 'fecha_nacimiento', 'antiguedad_display'),
+            'description': 'La fecha de contratación determina los días de vacaciones según antigüedad. Puedes modificarla para hacer pruebas.'
         }),
         ('Control de Vacaciones', {
-            'fields': ('puede_vacaciones', 'dias_vacaciones_anuales', 'dias_vacaciones_usados', 'dias_vacaciones_info'),
+            'fields': (
+                'puede_vacaciones', 
+                'dias_vacaciones_anuales', 
+                'dias_vacaciones_usados', 
+                'dias_vacaciones_acumulados',
+                'dias_vacaciones_extraordinarios',
+                'ultimo_reset_vacaciones',
+                'dias_vacaciones_info'
+            ),
+            'description': 'Los días anuales se calculan automáticamente según antigüedad. Puedes ajustar manualmente para pruebas.',
             'classes': ('collapse',)
         }),
         ('Información de Contacto', {
@@ -114,7 +124,10 @@ class PerfilAdmin(admin.ModelAdmin):
             'usuario', 'departamento', 'supervisor'
         )
     
-    actions = ['marcar_como_activos', 'marcar_como_inactivos', 'resetear_vacaciones']
+    actions = [
+        'marcar_como_activos', 'marcar_como_inactivos', 'resetear_vacaciones',
+        'simular_1_ano', 'simular_2_anos', 'simular_5_anos', 'actualizar_dias_vacaciones'
+    ]
     
     def marcar_como_activos(self, request, queryset):
         """Marcar empleados seleccionados como activos"""
@@ -133,6 +146,40 @@ class PerfilAdmin(admin.ModelAdmin):
         updated = queryset.update(dias_vacaciones_usados=0)
         self.message_user(request, f'Vacaciones reseteadas para {updated} empleados.')
     resetear_vacaciones.short_description = "Resetear vacaciones"
+    
+    def simular_1_ano(self, request, queryset):
+        """Simular que el empleado tiene 1 año de antigüedad (para pruebas)"""
+        fecha_hace_1_ano = date.today() - timedelta(days=365)
+        updated = queryset.update(fecha_contratacion=fecha_hace_1_ano)
+        for perfil in queryset:
+            perfil.actualizar_dias_vacaciones()
+        self.message_user(request, f'{updated} empleados ajustados a 1 año de antigüedad (12 días).')
+    simular_1_ano.short_description = "🧪 Simular 1 año de antigüedad"
+    
+    def simular_2_anos(self, request, queryset):
+        """Simular que el empleado tiene 2 años de antigüedad (para pruebas)"""
+        fecha_hace_2_anos = date.today() - timedelta(days=730)
+        updated = queryset.update(fecha_contratacion=fecha_hace_2_anos)
+        for perfil in queryset:
+            perfil.actualizar_dias_vacaciones()
+        self.message_user(request, f'{updated} empleados ajustados a 2 años de antigüedad (14 días).')
+    simular_2_anos.short_description = "🧪 Simular 2 años de antigüedad"
+    
+    def simular_5_anos(self, request, queryset):
+        """Simular que el empleado tiene 5 años de antigüedad (para pruebas)"""
+        fecha_hace_5_anos = date.today() - timedelta(days=1825)
+        updated = queryset.update(fecha_contratacion=fecha_hace_5_anos)
+        for perfil in queryset:
+            perfil.actualizar_dias_vacaciones()
+        self.message_user(request, f'{updated} empleados ajustados a 5 años de antigüedad (20 días).')
+    simular_5_anos.short_description = "🧪 Simular 5 años de antigüedad"
+    
+    def actualizar_dias_vacaciones(self, request, queryset):
+        """Actualizar días de vacaciones según antigüedad actual"""
+        for perfil in queryset:
+            perfil.actualizar_dias_vacaciones()
+        self.message_user(request, f'Días de vacaciones actualizados para {queryset.count()} empleados.')
+    actualizar_dias_vacaciones.short_description = "🔄 Actualizar días según antigüedad"
 
 
 @admin.register(Departamento)
