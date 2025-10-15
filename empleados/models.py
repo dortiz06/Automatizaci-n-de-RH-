@@ -210,20 +210,28 @@ class Perfil(models.Model):
         if self.antiguedad_anos < 1:
             return int(self.dias_vacaciones_segun_antiguedad)
         
-        # Para empleados con 1+ años, calcular proporcional del año actual
+        # Para empleados con 1+ años, calcular desde su aniversario
         hoy = date.today()
+        fecha_aniversario = date(hoy.year, self.fecha_contratacion.month, self.fecha_contratacion.day)
         
-        # Calcular en qué mes del año estamos (1-12)
-        mes_actual = hoy.month
+        # Si el aniversario ya pasó este año, calcular desde el aniversario
+        if hoy >= fecha_aniversario:
+            # Calcular meses desde el aniversario
+            meses_desde_aniversario = (hoy.year - fecha_aniversario.year) * 12 + (hoy.month - fecha_aniversario.month)
+            if hoy.day >= fecha_aniversario.day:
+                meses_desde_aniversario += 1
+        else:
+            # El aniversario aún no llega, calcular desde enero
+            meses_desde_aniversario = hoy.month
         
         # Calcular días correspondientes al año actual (según antigüedad)
         dias_anuales_actuales = self.dias_vacaciones_segun_antiguedad
         dias_por_mes = dias_anuales_actuales / 12
         
-        # Días acumulados en el año actual (proporcional a meses transcurridos)
-        dias_acumulados_este_ano = dias_por_mes * mes_actual
+        # Días acumulados (proporcional a meses desde aniversario)
+        dias_acumulados = dias_por_mes * meses_desde_aniversario
         
-        return int(dias_acumulados_este_ano)
+        return int(dias_acumulados)
     
     def calcular_total_disponible_proyectado(self):
         """Calcula total de días disponibles: año anterior + acumulado este año - usados"""
