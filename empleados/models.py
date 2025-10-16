@@ -251,7 +251,7 @@ class Perfil(models.Model):
         if self.antiguedad_anos < 1:
             dias_trabajados = (date.today() - self.fecha_contratacion).days
             dias_por_dia = 12 / 365
-            return round(dias_por_dia * dias_trabajados, 2)
+            return round(dias_por_dia * dias_trabajados, 4)
         
         # Para empleados con 1+ años, calcular desde su aniversario
         hoy = date.today()
@@ -276,10 +276,10 @@ class Perfil(models.Model):
         dias_por_dia = dias_anuales_actuales / 365
         
         # Días acumulados (proporcional a días transcurridos)
-        # Mostrar CON DECIMALES exactos
+        # Mostrar CON DECIMALES exactos (4 decimales)
         dias_acumulados = dias_por_dia * dias_transcurridos
         
-        return round(dias_acumulados, 2)
+        return round(dias_acumulados, 4)
     
     def calcular_total_disponible_proyectado(self):
         """Calcula total de días disponibles: año anterior completado + acumulado este año - usados (con decimales)"""
@@ -289,7 +289,7 @@ class Perfil(models.Model):
         
         # Para empleados con menos de 1 año
         if self.antiguedad_anos < 1:
-            return round(self.dias_vacaciones_segun_antiguedad - self.dias_vacaciones_usados, 2)
+            return round(self.dias_vacaciones_segun_antiguedad - self.dias_vacaciones_usados, 4)
         
         # Para empleados con 1+ años:
         # Días del año laboral anterior completado (ej: año 1 = 12 días si está en año 2)
@@ -303,10 +303,10 @@ class Perfil(models.Model):
         dias_usados = self.dias_vacaciones_usados
         
         # Total = Año anterior completo + Acumulado año actual - Usados
-        # Ejemplo: 12 (año 1) + 3.51 (acumulado año 2) - 8 (usados) = 7.51 días
+        # Ejemplo: 12 (año 1) + 3.5342 (acumulado año 2) - 8 (usados) = 7.5342 días
         total = dias_ano_anterior_completado + dias_acumulados_ano_actual - dias_usados
         
-        return round(total, 2)
+        return round(total, 4)
     
     @property
     def mostrar_seccion_ano_anterior(self):
