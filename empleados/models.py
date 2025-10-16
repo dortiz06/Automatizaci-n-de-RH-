@@ -230,17 +230,28 @@ class Perfil(models.Model):
         dias_anuales = self.calcular_dias_segun_ano_laboral(ano_laboral_actual)
         return round(dias_anuales / 12, 2)  # Días por mes redondeado a 2 decimales
     
+    def calcular_acumulacion_diaria(self):
+        """Calcula cuántos días acumula por día trabajado según su antigüedad"""
+        if self.antiguedad_anos < 1:
+            return round(12 / 365, 6)  # Primer año: 12/365 días por día
+        
+        # Usar el año laboral actual (antiguedad + 1 porque está en ese año)
+        ano_laboral_actual = self.antiguedad_anos + 1
+        dias_anuales = self.calcular_dias_segun_ano_laboral(ano_laboral_actual)
+        return round(dias_anuales / 365, 6)  # Días por día con 6 decimales
+    
     def calcular_dias_acumulados_hasta_hoy(self):
-        """Calcula cuántos días ha acumulado hasta el día de hoy en el año actual"""
-        import math
+        """Calcula cuántos días ha acumulado hasta el día de hoy en el año actual (cálculo diario con decimales)"""
         from datetime import date
         
         if not self.fecha_contratacion:
             return 0
         
-        # Para empleados con menos de 1 año, usar el cálculo proporcional total
+        # Para empleados con menos de 1 año, calcular proporcionalmente por día
         if self.antiguedad_anos < 1:
-            return math.floor(self.dias_vacaciones_segun_antiguedad)
+            dias_trabajados = (date.today() - self.fecha_contratacion).days
+            dias_por_dia = 12 / 365
+            return round(dias_por_dia * dias_trabajados, 2)
         
         # Para empleados con 1+ años, calcular desde su aniversario
         hoy = date.today()
@@ -251,53 +262,51 @@ class Perfil(models.Model):
         
         # Si el aniversario ya pasó este año, calcular desde el aniversario
         if hoy >= fecha_aniversario:
-            # Calcular meses completos desde el aniversario
-            # Ejemplo: aniversario 15/julio, hoy 15/octubre → 3 meses (agosto, septiembre, octubre)
-            meses_desde_aniversario = (hoy.year - fecha_aniversario.year) * 12 + (hoy.month - fecha_aniversario.month)
-            # No sumar mes adicional, contar solo meses completos transcurridos
+            # Calcular días transcurridos desde el aniversario
+            dias_transcurridos = (hoy - fecha_aniversario).days
         else:
             # El aniversario aún no llega, seguimos en el año laboral anterior
-            
             ano_laboral_actual = self.antiguedad_anos
-            meses_desde_aniversario = hoy.month
+            # Calcular días desde inicio del año
+            inicio_ano = date(hoy.year, 1, 1)
+            dias_transcurridos = (hoy - inicio_ano).days
         
         # Calcular días correspondientes al año laboral actual
         dias_anuales_actuales = self.calcular_dias_segun_ano_laboral(ano_laboral_actual)
-        dias_por_mes = dias_anuales_actuales / 12
+        dias_por_dia = dias_anuales_actuales / 365
         
-        # Días acumulados (proporcional a meses desde aniversario)
-        # REDONDEO HACIA ABAJO (floor)
-        dias_acumulados = dias_por_mes * meses_desde_aniversario
+        # Días acumulados (proporcional a días transcurridos)
+        # Mostrar CON DECIMALES exactos
+        dias_acumulados = dias_por_dia * dias_transcurridos
         
-        return math.floor(dias_acumulados)
+        return round(dias_acumulados, 2)
     
     def calcular_total_disponible_proyectado(self):
-        """Calcula total de días disponibles: año anterior completado + acumulado este año - usados"""
-        import math
+        """Calcula total de días disponibles: año anterior completado + acumulado este año - usados (con decimales)"""
         
         if not self.fecha_contratacion:
             return 0
         
         # Para empleados con menos de 1 año
         if self.antiguedad_anos < 1:
-            return math.floor(self.dias_vacaciones_segun_antiguedad - self.dias_vacaciones_usados)
+            return round(self.dias_vacaciones_segun_antiguedad - self.dias_vacaciones_usados, 2)
         
         # Para empleados con 1+ años:
         # Días del año laboral anterior completado (ej: año 1 = 12 días si está en año 2)
         ano_laboral_anterior = self.antiguedad_anos
         dias_ano_anterior_completado = self.calcular_dias_segun_ano_laboral(ano_laboral_anterior)
         
-        # Días acumulados hasta hoy en el año laboral actual (ej: año 2 = 3 días de 14)
+        # Días acumulados hasta hoy en el año laboral actual (ej: año 2 = 3.51 días de 14)
         dias_acumulados_ano_actual = self.calcular_dias_acumulados_hasta_hoy()
         
         # Días ya usados
         dias_usados = self.dias_vacaciones_usados
         
         # Total = Año anterior completo + Acumulado año actual - Usados
-        # Ejemplo: 12 (año 1) + 3 (acumulado año 2) - 8 (usados) = 7 días
+        # Ejemplo: 12 (año 1) + 3.51 (acumulado año 2) - 8 (usados) = 7.51 días
         total = dias_ano_anterior_completado + dias_acumulados_ano_actual - dias_usados
         
-        return math.floor(total)
+        return round(total, 2)
     
     @property
     def mostrar_seccion_ano_anterior(self):

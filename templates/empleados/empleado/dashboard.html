@@ -50,7 +50,7 @@
                 <div class="p-2 bg-white rounded">
                     <small class="text-muted">Acumulado Este Año (hasta hoy)</small>
                     <div class="h5 mb-0 text-success">{{ perfil.calcular_dias_acumulados_hasta_hoy }} días</div>
-                    <small class="text-muted">({{ perfil.calcular_acumulacion_mensual }} días/mes)</small>
+                    <small class="text-muted">({{ perfil.calcular_acumulacion_diaria }} días/día trabajado)</small>
                 </div>
             </div>
             <div class="{% if perfil.mostrar_seccion_ano_anterior %}col-md-4{% else %}col-md-6{% endif %}">
