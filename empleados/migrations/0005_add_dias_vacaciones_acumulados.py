@@ -16,3 +16,4 @@ class Migration(migrations.Migration):
             field=models.PositiveIntegerField(default=0, verbose_name='Días de Vacaciones Acumulados del Año Anterior'),
         ),
     ]
+
