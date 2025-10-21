@@ -14,8 +14,11 @@
             <a href="{% url 'empleados:perfil_usuario' %}" class="btn btn-outline-info me-2">
                 <i class="fas fa-user me-1"></i>Mi Perfil
             </a>
-            <a href="{% url 'empleados:solicitar_vacaciones' %}" class="btn btn-primary">
+            <a href="{% url 'empleados:solicitar_vacaciones' %}" class="btn btn-primary me-2">
                 <i class="fas fa-calendar-plus me-1"></i>Solicitar Vacaciones
+            </a>
+            <a href="{% url 'empleados:crear_ticket' %}" class="btn btn-success">
+                <i class="fas fa-headset me-1"></i>Generar Ticket
             </a>
         </div>
     </div>
@@ -69,6 +72,7 @@
         {% endif %}
     </div>
     
+    <!-- Estadísticas de Vacaciones -->
     <div class="row">
         <div class="col-md-3">
             <div class="card text-center">
@@ -96,7 +100,7 @@
                 </div>
             </div>
         </div>
-        <div class="col-md-3">
+        <div class="col-md-2">
             <div class="card text-center">
                 <div class="card-body">
                     <i class="fas fa-clock fa-2x text-info mb-2"></i>
@@ -106,13 +110,23 @@
                 </div>
             </div>
         </div>
-        <div class="col-md-3">
+        <div class="col-md-2">
             <div class="card text-center">
                 <div class="card-body">
-                    <i class="fas fa-check-circle fa-2x text-success mb-2"></i>
-                    <h5 class="card-title">Aprobadas</h5>
-                    <h3 class="text-success">{{ stats.solicitudes_aprobadas }}</h3>
-                    <small class="text-muted">solicitudes</small>
+                    <i class="fas fa-laptop fa-2x text-primary mb-2"></i>
+                    <h5 class="card-title">Equipos</h5>
+                    <h3 class="text-primary">{{ stats.equipos_asignados }}</h3>
+                    <a href="{% url 'empleados:mis_equipos' %}" class="btn btn-sm btn-outline-primary mt-1">Ver</a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="card text-center">
+                <div class="card-body">
+                    <i class="fas fa-ticket-alt fa-2x text-danger mb-2"></i>
+                    <h5 class="card-title">Tickets</h5>
+                    <h3 class="text-danger">{{ stats.tickets_pendientes }}</h3>
+                    <a href="{% url 'empleados:mis_tickets' %}" class="btn btn-sm btn-outline-danger mt-1">Ver</a>
                 </div>
             </div>
         </div>
@@ -203,6 +217,94 @@
                     </a>
                 </div>
             {% endif %}
+        </div>
+    </div>
+    
+    <!-- Sección de Equipos Asignados -->
+    <div class="row mt-4">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="fas fa-laptop me-2"></i>Mis Equipos Asignados</h5>
+                </div>
+                <div class="card-body">
+                    {% if equipos_asignados %}
+                        <div class="table-responsive">
+                            <table class="table table-sm table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Tipo</th>
+                                        <th>Marca / Modelo</th>
+                                        <th>Código</th>
+                                        <th>Fecha Asignación</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for asignacion in equipos_asignados %}
+                                    <tr>
+                                        <td><i class="fas fa-{{ asignacion.equipo.categoria.nombre|lower }} me-1"></i>{{ asignacion.equipo.categoria.nombre }}</td>
+                                        <td>{{ asignacion.equipo.marca }} {{ asignacion.equipo.modelo }}</td>
+                                        <td><span class="badge bg-secondary">{{ asignacion.equipo.codigo_inventario }}</span></td>
+                                        <td>{{ asignacion.fecha_asignacion|date:"d/m/Y" }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        <a href="{% url 'empleados:mis_equipos' %}" class="btn btn-sm btn-outline-primary">Ver todos mis equipos</a>
+                    {% else %}
+                        <div class="text-center py-3">
+                            <i class="fas fa-laptop fa-2x text-muted mb-2"></i>
+                            <p class="text-muted mb-0">No tienes equipos asignados actualmente</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0"><i class="fas fa-ticket-alt me-2"></i>Mis Tickets Recientes</h5>
+                </div>
+                <div class="card-body">
+                    {% if tickets_recientes %}
+                        <div class="list-group list-group-flush">
+                            {% for ticket in tickets_recientes %}
+                            <a href="{% url 'empleados:detalle_ticket' ticket.id %}" class="list-group-item list-group-item-action">
+                                <div class="d-flex w-100 justify-content-between">
+                                    <h6 class="mb-1">{{ ticket.codigo }}</h6>
+                                    <small>
+                                        {% if ticket.estado == 'PENDIENTE' %}
+                                            <span class="badge bg-warning">Pendiente</span>
+                                        {% elif ticket.estado == 'EN_PROCESO' %}
+                                            <span class="badge bg-info">En Proceso</span>
+                                        {% elif ticket.estado == 'RESUELTO' %}
+                                            <span class="badge bg-success">Resuelto</span>
+                                        {% else %}
+                                            <span class="badge bg-secondary">{{ ticket.get_estado_display }}</span>
+                                        {% endif %}
+                                    </small>
+                                </div>
+                                <p class="mb-1 small">{{ ticket.descripcion|truncatewords:15 }}</p>
+                                <small class="text-muted">{{ ticket.fecha_creacion|date:"d/m/Y H:i" }}</small>
+                            </a>
+                            {% endfor %}
+                        </div>
+                        <div class="mt-2 text-center">
+                            <a href="{% url 'empleados:mis_tickets' %}" class="btn btn-sm btn-outline-success">Ver todos mis tickets</a>
+                        </div>
+                    {% else %}
+                        <div class="text-center py-3">
+                            <i class="fas fa-ticket-alt fa-2x text-muted mb-2"></i>
+                            <p class="text-muted mb-2">No tienes tickets creados</p>
+                            <a href="{% url 'empleados:crear_ticket' %}" class="btn btn-sm btn-success">
+                                <i class="fas fa-plus me-1"></i>Crear mi primer ticket
+                            </a>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
         </div>
     </div>
 </div>

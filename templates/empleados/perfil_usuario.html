@@ -147,6 +147,58 @@
                     </div>
                 </div>
                 {% endif %}
+                
+                <!-- Equipos Asignados -->
+                {% if equipos_asignados %}
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0">
+                            <i class="fas fa-laptop me-2"></i>
+                            Equipos Asignados
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-sm table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Categoría</th>
+                                        <th>Marca / Modelo</th>
+                                        <th>Código</th>
+                                        <th>Fecha Asignación</th>
+                                        <th>Condición</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for asignacion in equipos_asignados %}
+                                    <tr>
+                                        <td>
+                                            <i class="fas fa-laptop me-1 text-primary"></i>
+                                            <strong>{{ asignacion.equipo.categoria.nombre }}</strong>
+                                        </td>
+                                        <td>{{ asignacion.equipo.marca }} {{ asignacion.equipo.modelo }}</td>
+                                        <td><span class="badge bg-secondary">{{ asignacion.equipo.codigo_inventario }}</span></td>
+                                        <td>{{ asignacion.fecha_asignacion|date:"d/m/Y" }}</td>
+                                        <td>
+                                            {% if asignacion.condicion_entrega %}
+                                                <span class="badge bg-success">{{ asignacion.condicion_entrega }}</span>
+                                            {% else %}
+                                                -
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="mt-2">
+                            <a href="{% url 'empleados:mis_equipos' %}" class="btn btn-sm btn-outline-primary">
+                                <i class="fas fa-eye me-1"></i>Ver todos mis equipos
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
             </div>
 
             <!-- Sidebar -->

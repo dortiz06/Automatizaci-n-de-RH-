@@ -33,6 +33,24 @@ urlpatterns = [
     path('departamentos/', views.gestion_departamentos, name='gestion_departamentos'),
     path('departamentos/crear/', views.crear_departamento, name='crear_departamento'),
     
+    # === TICKETS ===
+    path('tickets/', views.mis_tickets, name='mis_tickets'),
+    path('tickets/crear/', views.crear_ticket, name='crear_ticket'),
+    path('tickets/<int:ticket_id>/', views.detalle_ticket, name='detalle_ticket'),
+    
+    # === EQUIPOS ===
+    path('equipos/', views.mis_equipos, name='mis_equipos'),
+    
+    # === SISTEMAS/IT DASHBOARD ===
+    path('sistemas/', views.dashboard_sistemas, name='sistemas_dashboard'),
+    path('sistemas/tickets/', views.gestionar_tickets, name='gestionar_tickets'),
+    path('sistemas/tickets/<int:ticket_id>/asignar/', views.asignar_ticket, name='asignar_ticket'),
+    path('sistemas/tickets/<int:ticket_id>/resolver/', views.resolver_ticket, name='resolver_ticket'),
+    path('sistemas/equipos/', views.inventario_equipos, name='inventario_equipos'),
+    path('sistemas/equipos/agregar/', views.agregar_equipo, name='agregar_equipo'),
+    path('sistemas/equipos/asignar/', views.asignar_equipo, name='asignar_equipo'),
+    path('sistemas/equipos/<int:asignacion_id>/devolver/', views.devolver_equipo, name='devolver_equipo'),
+    
     # === API ENDPOINTS ===
     path('api/validar-antiguedad/', views.validar_antiguedad, name='validar_antiguedad'),
     

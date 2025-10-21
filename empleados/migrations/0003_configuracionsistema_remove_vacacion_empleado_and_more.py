@@ -8,7 +8,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('empleados', '0002_empleado_user_vacacion_aprobado_jefe_and_more'),
+        ('empleados', '0002_add_vacation_extra_fields'),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 
@@ -26,10 +26,10 @@ class Migration(migrations.Migration):
                 'verbose_name_plural': 'Configuraciones del Sistema',
             },
         ),
-        migrations.RemoveField(
-            model_name='vacacion',
-            name='empleado',
-        ),
+        # migrations.RemoveField(
+        #     model_name='vacacion',
+        #     name='empleado',
+        # ),
         migrations.AddField(
             model_name='departamento',
             name='activo',
@@ -102,10 +102,10 @@ class Migration(migrations.Migration):
                 'ordering': ['-fecha_solicitud'],
             },
         ),
-        migrations.DeleteModel(
-            name='Empleado',
-        ),
-        migrations.DeleteModel(
-            name='Vacacion',
-        ),
+        # migrations.DeleteModel(
+        #     name='Empleado',
+        # ),
+        # migrations.DeleteModel(
+        #     name='Vacacion',
+        # ),
     ]

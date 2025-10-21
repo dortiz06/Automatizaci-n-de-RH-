@@ -1,0 +1,38 @@
+{% extends 'base.html' %}
+
+{% block title %}Inventario{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <h2>Inventario de Equipos</h2>
+    {% if equipos %}
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Código</th>
+                    <th>Categoría</th>
+                    <th>Marca</th>
+                    <th>Modelo</th>
+                    <th>Serie</th>
+                    <th>Estado</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for equipo in equipos %}
+                <tr>
+                    <td>{{ equipo.codigo_inventario }}</td>
+                    <td>{{ equipo.categoria.nombre }}</td>
+                    <td>{{ equipo.marca }}</td>
+                    <td>{{ equipo.modelo }}</td>
+                    <td>{{ equipo.numero_serie }}</td>
+                    <td>{{ equipo.get_estado_display }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        <p>No hay equipos en el inventario</p>
+    {% endif %}
+</div>
+{% endblock %}
+

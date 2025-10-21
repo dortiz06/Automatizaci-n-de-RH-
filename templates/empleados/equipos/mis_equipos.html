@@ -1,0 +1,126 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Mis Equipos{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="mb-4">
+        <h1><i class="fas fa-laptop me-2"></i>Mis Equipos Asignados</h1>
+        <p class="text-muted">Equipos tecnológicos asignados a mi persona</p>
+    </div>
+    
+    <!-- Equipos Actualmente Asignados -->
+    <div class="card mb-4">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0"><i class="fas fa-check-circle me-2"></i>Equipos Activos</h5>
+        </div>
+        <div class="card-body">
+            {% if asignaciones_activas %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Categoría</th>
+                                <th>Marca / Modelo</th>
+                                <th>Número de Serie</th>
+                                <th>Código Inventario</th>
+                                <th>Fecha Asignación</th>
+                                <th>Condición</th>
+                                <th>Observaciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for asignacion in asignaciones_activas %}
+                            <tr>
+                                <td>
+                                    <i class="fas fa-{{ asignacion.equipo.categoria.nombre|lower }} me-1 text-primary"></i>
+                                    <strong>{{ asignacion.equipo.categoria.nombre }}</strong>
+                                </td>
+                                <td>{{ asignacion.equipo.marca }} {{ asignacion.equipo.modelo }}</td>
+                                <td><code>{{ asignacion.equipo.numero_serie }}</code></td>
+                                <td><span class="badge bg-secondary">{{ asignacion.equipo.codigo_inventario }}</span></td>
+                                <td>{{ asignacion.fecha_asignacion|date:"d/m/Y" }}</td>
+                                <td>
+                                    {% if asignacion.condicion_entrega %}
+                                        <span class="badge bg-info">{{ asignacion.condicion_entrega }}</span>
+                                    {% else %}
+                                        <span class="text-muted">-</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if asignacion.observaciones %}
+                                        {{ asignacion.observaciones|truncatewords:10 }}
+                                    {% else %}
+                                        <span class="text-muted">Sin observaciones</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <div class="text-center py-5">
+                    <i class="fas fa-laptop fa-3x text-muted mb-3"></i>
+                    <h5 class="text-muted">No tienes equipos asignados actualmente</h5>
+                    <p class="text-muted">Cuando se te asigne algún equipo, aparecerá aquí</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+    
+    <!-- Historial de Equipos Devueltos -->
+    {% if historial_asignaciones %}
+    <div class="card">
+        <div class="card-header bg-secondary text-white">
+            <h5 class="mb-0"><i class="fas fa-history me-2"></i>Historial de Equipos Devueltos</h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-sm">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Categoría</th>
+                            <th>Marca / Modelo</th>
+                            <th>Código</th>
+                            <th>Asignación</th>
+                            <th>Devolución</th>
+                            <th>Condición Devolución</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for asignacion in historial_asignaciones %}
+                        <tr>
+                            <td>
+                                <i class="fas fa-{{ asignacion.equipo.categoria.nombre|lower }} me-1"></i>
+                                {{ asignacion.equipo.categoria.nombre }}
+                            </td>
+                            <td>{{ asignacion.equipo.marca }} {{ asignacion.equipo.modelo }}</td>
+                            <td><small>{{ asignacion.equipo.codigo_inventario }}</small></td>
+                            <td>{{ asignacion.fecha_asignacion|date:"d/m/Y" }}</td>
+                            <td>{{ asignacion.fecha_devolucion|date:"d/m/Y" }}</td>
+                            <td>
+                                {% if asignacion.condicion_devolucion %}
+                                    {{ asignacion.condicion_devolucion }}
+                                {% else %}
+                                    <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    
+    <div class="mt-3">
+        <a href="{% url 'empleados:empleado_dashboard' %}" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left me-1"></i>Volver al Dashboard
+        </a>
+    </div>
+</div>
+{% endblock %}
+

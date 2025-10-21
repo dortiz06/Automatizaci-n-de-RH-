@@ -3,7 +3,7 @@ from django.contrib.auth.models import User
 from django.contrib.auth.forms import UserCreationForm
 from django.utils import timezone
 from datetime import timedelta
-from .models import Perfil, Departamento, SolicitudVacaciones
+from .models import Perfil, Departamento, SolicitudVacaciones, Ticket, Equipo, AsignacionEquipo, CategoriaEquipo
 
 
 class UsuarioConPerfilForm(UserCreationForm):
@@ -12,6 +12,7 @@ class UsuarioConPerfilForm(UserCreationForm):
         ('EMPLEADO', 'Empleado'),
         ('JEFE_AREA', 'Jefe de Área'),
         ('RH', 'Recursos Humanos'),
+        ('SISTEMAS', 'Sistemas/IT'),
         ('ADMIN', 'Administrador'),
     ]
     
@@ -270,3 +271,189 @@ class ConfigurarDepartamentoForm(forms.ModelForm):
             activo=True, 
             tipo_perfil__in=['JEFE_AREA', 'ADMIN']
         )
+
+
+# ===================================================================
+# FORMULARIOS DE TICKETS Y EQUIPOS
+# ===================================================================
+
+class TicketForm(forms.ModelForm):
+    """Formulario para crear/editar tickets de soporte"""
+    
+    class Meta:
+        model = Ticket
+        fields = ['tipo', 'area', 'dispositivo', 'prioridad', 'descripcion']
+        widgets = {
+            'tipo': forms.Select(attrs={'class': 'form-control'}),
+            'area': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ej: Administración, Ventas, etc.'}),
+            'dispositivo': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ej: Laptop HP, iPhone, etc.'}),
+            'prioridad': forms.Select(attrs={'class': 'form-control'}),
+            'descripcion': forms.Textarea(attrs={
+                'class': 'form-control', 
+                'rows': 5,
+                'placeholder': 'Describe detalladamente el problema...'
+            }),
+        }
+        labels = {
+            'tipo': 'Tipo de Problema',
+            'area': 'Área',
+            'dispositivo': 'Dispositivo Afectado',
+            'prioridad': 'Prioridad',
+            'descripcion': 'Descripción del Problema',
+        }
+    
+    def __init__(self, *args, **kwargs):
+        self.empleado = kwargs.pop('empleado', None)
+        super().__init__(*args, **kwargs)
+        # Hacer opcional el campo área y dispositivo
+        self.fields['area'].required = False
+        self.fields['dispositivo'].required = False
+
+
+class TicketResolucionForm(forms.ModelForm):
+    """Formulario para resolver tickets (usado por Sistemas/IT)"""
+    
+    class Meta:
+        model = Ticket
+        fields = ['estado', 'solucion']
+        widgets = {
+            'estado': forms.Select(attrs={'class': 'form-control'}),
+            'solucion': forms.Textarea(attrs={
+                'class': 'form-control',
+                'rows': 5,
+                'placeholder': 'Describe la solución aplicada...'
+            }),
+        }
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Limitar las opciones de estado a las relevantes para resolución
+        self.fields['estado'].choices = [
+            ('EN_PROCESO', 'En Proceso'),
+            ('RESUELTO', 'Resuelto'),
+            ('CANCELADO', 'Cancelado'),
+        ]
+
+
+class EquipoForm(forms.ModelForm):
+    """Formulario para agregar/editar equipos en inventario"""
+    
+    class Meta:
+        model = Equipo
+        fields = [
+            'categoria', 'marca', 'modelo', 'numero_serie', 
+            'codigo_inventario', 'estado', 'fecha_adquisicion', 'observaciones'
+        ]
+        widgets = {
+            'categoria': forms.Select(attrs={'class': 'form-control'}),
+            'marca': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ej: HP, Apple, Dell'}),
+            'modelo': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ej: EliteBook 840'}),
+            'numero_serie': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Número de serie único'}),
+            'codigo_inventario': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Código interno de inventario'}),
+            'estado': forms.Select(attrs={'class': 'form-control'}),
+            'fecha_adquisicion': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
+            'observaciones': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
+        }
+        labels = {
+            'categoria': 'Categoría',
+            'marca': 'Marca',
+            'modelo': 'Modelo',
+            'numero_serie': 'Número de Serie',
+            'codigo_inventario': 'Código de Inventario',
+            'estado': 'Estado',
+            'fecha_adquisicion': 'Fecha de Adquisición',
+            'observaciones': 'Observaciones',
+        }
+
+
+class AsignacionEquipoForm(forms.ModelForm):
+    """Formulario para asignar equipos a empleados"""
+    
+    class Meta:
+        model = AsignacionEquipo
+        fields = ['equipo', 'empleado', 'fecha_asignacion', 'condicion_entrega', 'observaciones']
+        widgets = {
+            'equipo': forms.Select(attrs={'class': 'form-control'}),
+            'empleado': forms.Select(attrs={'class': 'form-control'}),
+            'fecha_asignacion': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
+            'condicion_entrega': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Ej: Nuevo, Usado - Buen estado, etc.'
+            }),
+            'observaciones': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
+        }
+        labels = {
+            'equipo': 'Equipo',
+            'empleado': 'Empleado',
+            'fecha_asignacion': 'Fecha de Asignación',
+            'condicion_entrega': 'Condición al Entregar',
+            'observaciones': 'Observaciones',
+        }
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Solo mostrar equipos disponibles
+        self.fields['equipo'].queryset = Equipo.objects.filter(estado='DISPONIBLE')
+        # Solo mostrar empleados activos
+        self.fields['empleado'].queryset = Perfil.objects.filter(activo=True)
+        # Fecha de asignación por defecto hoy
+        self.fields['fecha_asignacion'].initial = timezone.now().date()
+        # Hacer opcional observaciones
+        self.fields['observaciones'].required = False
+
+
+class DevolucionEquipoForm(forms.ModelForm):
+    """Formulario para registrar devolución de equipos"""
+    
+    class Meta:
+        model = AsignacionEquipo
+        fields = ['fecha_devolucion', 'condicion_devolucion', 'observaciones']
+        widgets = {
+            'fecha_devolucion': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
+            'condicion_devolucion': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Ej: Buen estado, Con daños menores, etc.'
+            }),
+            'observaciones': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
+        }
+        labels = {
+            'fecha_devolucion': 'Fecha de Devolución',
+            'condicion_devolucion': 'Condición al Devolver',
+            'observaciones': 'Observaciones',
+        }
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Fecha de devolución por defecto hoy
+        self.fields['fecha_devolucion'].initial = timezone.now().date()
+        # Hacer opcional observaciones
+        self.fields['observaciones'].required = False
+    
+    def clean_fecha_devolucion(self):
+        fecha_devolucion = self.cleaned_data.get('fecha_devolucion')
+        if self.instance and fecha_devolucion:
+            if fecha_devolucion < self.instance.fecha_asignacion:
+                raise forms.ValidationError('La fecha de devolución no puede ser anterior a la fecha de asignación.')
+        return fecha_devolucion
+
+
+class CategoriaEquipoForm(forms.ModelForm):
+    """Formulario para crear/editar categorías de equipos"""
+    
+    class Meta:
+        model = CategoriaEquipo
+        fields = ['nombre', 'descripcion', 'activo']
+        widgets = {
+            'nombre': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ej: Laptop, Celular, Tablet'}),
+            'descripcion': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
+            'activo': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+        }
+        labels = {
+            'nombre': 'Nombre de la Categoría',
+            'descripcion': 'Descripción',
+            'activo': 'Activo',
+        }
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['descripcion'].required = False

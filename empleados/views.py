@@ -6,7 +6,7 @@ from django.db.models import Q, Count
 from django.http import JsonResponse
 from django.core.exceptions import PermissionDenied
 from django.utils import timezone
-from .models import Perfil, Departamento, SolicitudVacaciones, ConfiguracionSistema
+from .models import Perfil, Departamento, SolicitudVacaciones, ConfiguracionSistema, Ticket, Equipo, AsignacionEquipo
 from .forms import (
     UsuarioConPerfilForm, SolicitudVacacionesForm, 
     AprobacionJefeForm, AprobacionRHForm, EditarPerfilForm, ConfigurarDepartamentoForm
@@ -156,6 +156,18 @@ def empleado_dashboard(request):
         empleado=perfil
     ).order_by('-fecha_solicitud')
     
+    # Equipos asignados
+    equipos_asignados = AsignacionEquipo.objects.filter(
+        empleado=perfil,
+        fecha_devolucion__isnull=True
+    ).select_related('equipo', 'equipo__categoria')[:5]
+    
+    # Tickets del empleado (sin slice para estadísticas)
+    tickets_empleado = Ticket.objects.filter(empleado=perfil)
+    
+    # Tickets recientes (con slice para mostrar solo 5)
+    tickets_recientes = tickets_empleado.order_by('-fecha_creacion')[:5]
+    
     # Estadísticas personales
     stats = {
         'dias_disponibles': perfil.dias_vacaciones_disponibles,
@@ -164,10 +176,14 @@ def empleado_dashboard(request):
             estado__in=['PENDIENTE_JEFE', 'PENDIENTE_RH']
         ).count(),
         'solicitudes_aprobadas': solicitudes.filter(estado='APROBADO_RH').count(),
+        'equipos_asignados': equipos_asignados.count(),
+        'tickets_pendientes': tickets_empleado.filter(estado__in=['PENDIENTE', 'EN_PROCESO']).count(),
     }
     
     context = {
         'solicitudes': solicitudes,
+        'equipos_asignados': equipos_asignados,
+        'tickets_recientes': tickets_recientes,
         'stats': stats,
         'perfil': perfil,
     }
@@ -440,6 +456,331 @@ def validar_antiguedad(request):
         'puede_vacaciones_normales': puede_vacaciones_normales,
         'dias_disponibles': perfil.dias_vacaciones_disponibles,
     })
+
+
+# ===================================================================
+# VISTAS DE TICKETS Y EQUIPOS
+# ===================================================================
+
+@login_required
+def mis_tickets(request):
+    """Vista para ver los tickets del empleado"""
+    perfil = get_object_or_404(Perfil, usuario=request.user)
+    tickets = Ticket.objects.filter(empleado=perfil).order_by('-fecha_creacion')
+    
+    context = {
+        'perfil': perfil,
+        'tickets': tickets,
+    }
+    return render(request, 'empleados/tickets/mis_tickets.html', context)
+
+
+@login_required
+def crear_ticket(request):
+    """Vista para crear un nuevo ticket"""
+    from .forms import TicketForm
+    perfil = get_object_or_404(Perfil, usuario=request.user)
+    
+    if request.method == 'POST':
+        form = TicketForm(request.POST, empleado=perfil)
+        if form.is_valid():
+            ticket = form.save(commit=False)
+            ticket.empleado = perfil
+            ticket.save()
+            messages.success(request, f'Ticket {ticket.codigo} creado exitosamente.')
+            return redirect('mis_tickets')
+    else:
+        form = TicketForm(empleado=perfil)
+    
+    context = {
+        'perfil': perfil,
+        'form': form,
+    }
+    return render(request, 'empleados/tickets/crear_ticket.html', context)
+
+
+@login_required
+def detalle_ticket(request, ticket_id):
+    """Vista para ver el detalle de un ticket"""
+    perfil = get_object_or_404(Perfil, usuario=request.user)
+    ticket = get_object_or_404(Ticket, id=ticket_id)
+    
+    # Verificar permisos
+    if perfil.es_sistemas() or perfil.es_admin() or perfil.es_rh() or ticket.empleado == perfil:
+        context = {
+            'perfil': perfil,
+            'ticket': ticket,
+        }
+        return render(request, 'empleados/tickets/detalle_ticket.html', context)
+    else:
+        messages.error(request, 'No tienes permiso para ver este ticket.')
+        return redirect('empleado_dashboard')
+
+
+@login_required
+def mis_equipos(request):
+    """Vista para ver los equipos asignados al empleado"""
+    perfil = get_object_or_404(Perfil, usuario=request.user)
+    asignaciones_activas = AsignacionEquipo.objects.filter(
+        empleado=perfil,
+        fecha_devolucion__isnull=True
+    ).select_related('equipo', 'equipo__categoria')
+    
+    historial_asignaciones = AsignacionEquipo.objects.filter(
+        empleado=perfil,
+        fecha_devolucion__isnull=False
+    ).select_related('equipo', 'equipo__categoria').order_by('-fecha_devolucion')[:10]
+    
+    context = {
+        'perfil': perfil,
+        'asignaciones_activas': asignaciones_activas,
+        'historial_asignaciones': historial_asignaciones,
+    }
+    return render(request, 'empleados/equipos/mis_equipos.html', context)
+
+
+# === VISTAS DE SISTEMAS/IT ===
+
+@login_required
+def dashboard_sistemas(request):
+    """Dashboard para el área de Sistemas/IT"""
+    perfil = get_object_or_404(Perfil, usuario=request.user)
+    
+    # Verificar permisos
+    if not (perfil.es_sistemas() or perfil.es_admin()):
+        messages.error(request, 'No tienes permiso para acceder a esta sección.')
+        return redirect('empleado_dashboard')
+    
+    # Estadísticas de tickets
+    tickets_pendientes = Ticket.objects.filter(estado='PENDIENTE').count()
+    tickets_en_proceso = Ticket.objects.filter(estado='EN_PROCESO').count()
+    tickets_resueltos_hoy = Ticket.objects.filter(
+        estado='RESUELTO',
+        fecha_resolucion__date=timezone.now().date()
+    ).count()
+    
+    # Tickets recientes
+    tickets_recientes = Ticket.objects.all().order_by('-fecha_creacion')[:10]
+    
+    # Estadísticas de equipos
+    equipos_disponibles = Equipo.objects.filter(estado='DISPONIBLE').count()
+    equipos_asignados = Equipo.objects.filter(estado='ASIGNADO').count()
+    equipos_en_reparacion = Equipo.objects.filter(estado='EN_REPARACION').count()
+    
+    context = {
+        'perfil': perfil,
+        'tickets_pendientes': tickets_pendientes,
+        'tickets_en_proceso': tickets_en_proceso,
+        'tickets_resueltos_hoy': tickets_resueltos_hoy,
+        'tickets_recientes': tickets_recientes,
+        'equipos_disponibles': equipos_disponibles,
+        'equipos_asignados': equipos_asignados,
+        'equipos_en_reparacion': equipos_en_reparacion,
+    }
+    return render(request, 'empleados/sistemas/dashboard.html', context)
+
+
+@login_required
+def gestionar_tickets(request):
+    """Vista para gestionar tickets (Sistemas/IT)"""
+    from .forms import TicketResolucionForm
+    perfil = get_object_or_404(Perfil, usuario=request.user)
+    
+    # Verificar permisos
+    if not (perfil.es_sistemas() or perfil.es_admin()):
+        messages.error(request, 'No tienes permiso para acceder a esta sección.')
+        return redirect('empleado_dashboard')
+    
+    # Filtros
+    estado_filtro = request.GET.get('estado', 'TODOS')
+    
+    tickets = Ticket.objects.all().order_by('-fecha_creacion')
+    if estado_filtro != 'TODOS':
+        tickets = tickets.filter(estado=estado_filtro)
+    
+    context = {
+        'perfil': perfil,
+        'tickets': tickets,
+        'estado_filtro': estado_filtro,
+    }
+    return render(request, 'empleados/sistemas/gestionar_tickets.html', context)
+
+
+@login_required
+def asignar_ticket(request, ticket_id):
+    """Asignar un ticket al usuario de sistemas actual"""
+    perfil = get_object_or_404(Perfil, usuario=request.user)
+    
+    # Verificar permisos
+    if not (perfil.es_sistemas() or perfil.es_admin()):
+        messages.error(request, 'No tienes permiso para realizar esta acción.')
+        return redirect('empleado_dashboard')
+    
+    ticket = get_object_or_404(Ticket, id=ticket_id)
+    ticket.asignado_a = perfil
+    ticket.estado = 'EN_PROCESO'
+    ticket.fecha_asignacion = timezone.now()
+    ticket.save()
+    
+    messages.success(request, f'Ticket {ticket.codigo} asignado correctamente.')
+    return redirect('gestionar_tickets')
+
+
+@login_required
+def resolver_ticket(request, ticket_id):
+    """Marcar un ticket como resuelto"""
+    from .forms import TicketResolucionForm
+    perfil = get_object_or_404(Perfil, usuario=request.user)
+    
+    # Verificar permisos
+    if not (perfil.es_sistemas() or perfil.es_admin()):
+        messages.error(request, 'No tienes permiso para realizar esta acción.')
+        return redirect('empleado_dashboard')
+    
+    ticket = get_object_or_404(Ticket, id=ticket_id)
+    
+    if request.method == 'POST':
+        form = TicketResolucionForm(request.POST, instance=ticket)
+        if form.is_valid():
+            ticket = form.save(commit=False)
+            if ticket.estado == 'RESUELTO' and not ticket.fecha_resolucion:
+                ticket.fecha_resolucion = timezone.now()
+            ticket.save()
+            messages.success(request, f'Ticket {ticket.codigo} actualizado correctamente.')
+            return redirect('gestionar_tickets')
+    else:
+        form = TicketResolucionForm(instance=ticket)
+    
+    context = {
+        'perfil': perfil,
+        'ticket': ticket,
+        'form': form,
+    }
+    return render(request, 'empleados/sistemas/resolver_ticket.html', context)
+
+
+@login_required
+def inventario_equipos(request):
+    """Vista para gestionar el inventario de equipos"""
+    from .forms import EquipoForm
+    perfil = get_object_or_404(Perfil, usuario=request.user)
+    
+    # Verificar permisos
+    if not (perfil.es_sistemas() or perfil.es_admin() or perfil.es_rh()):
+        messages.error(request, 'No tienes permiso para acceder a esta sección.')
+        return redirect('empleado_dashboard')
+    
+    equipos = Equipo.objects.all().select_related('categoria').order_by('-fecha_adquisicion')
+    
+    # Filtros
+    estado_filtro = request.GET.get('estado', 'TODOS')
+    if estado_filtro != 'TODOS':
+        equipos = equipos.filter(estado=estado_filtro)
+    
+    context = {
+        'perfil': perfil,
+        'equipos': equipos,
+        'estado_filtro': estado_filtro,
+    }
+    return render(request, 'empleados/sistemas/inventario.html', context)
+
+
+@login_required
+def agregar_equipo(request):
+    """Vista para agregar un nuevo equipo al inventario"""
+    from .forms import EquipoForm
+    perfil = get_object_or_404(Perfil, usuario=request.user)
+    
+    # Verificar permisos
+    if not (perfil.es_sistemas() or perfil.es_admin()):
+        messages.error(request, 'No tienes permiso para realizar esta acción.')
+        return redirect('empleado_dashboard')
+    
+    if request.method == 'POST':
+        form = EquipoForm(request.POST)
+        if form.is_valid():
+            equipo = form.save()
+            messages.success(request, f'Equipo {equipo.codigo_inventario} agregado exitosamente.')
+            return redirect('inventario_equipos')
+    else:
+        form = EquipoForm()
+    
+    context = {
+        'perfil': perfil,
+        'form': form,
+    }
+    return render(request, 'empleados/sistemas/agregar_equipo.html', context)
+
+
+@login_required
+def asignar_equipo(request):
+    """Vista para asignar equipos a empleados"""
+    from .forms import AsignacionEquipoForm
+    perfil = get_object_or_404(Perfil, usuario=request.user)
+    
+    # Verificar permisos
+    if not (perfil.es_sistemas() or perfil.es_admin() or perfil.es_rh()):
+        messages.error(request, 'No tienes permiso para realizar esta acción.')
+        return redirect('empleado_dashboard')
+    
+    if request.method == 'POST':
+        form = AsignacionEquipoForm(request.POST)
+        if form.is_valid():
+            asignacion = form.save(commit=False)
+            asignacion.asignado_por = perfil
+            asignacion.save()
+            
+            # Actualizar estado del equipo
+            equipo = asignacion.equipo
+            equipo.estado = 'ASIGNADO'
+            equipo.save()
+            
+            messages.success(request, f'Equipo {equipo.codigo_inventario} asignado a {asignacion.empleado.nombre_completo}.')
+            return redirect('inventario_equipos')
+    else:
+        form = AsignacionEquipoForm()
+    
+    context = {
+        'perfil': perfil,
+        'form': form,
+    }
+    return render(request, 'empleados/sistemas/asignar_equipo.html', context)
+
+
+@login_required
+def devolver_equipo(request, asignacion_id):
+    """Vista para registrar la devolución de un equipo"""
+    from .forms import DevolucionEquipoForm
+    perfil = get_object_or_404(Perfil, usuario=request.user)
+    
+    # Verificar permisos
+    if not (perfil.es_sistemas() or perfil.es_admin() or perfil.es_rh()):
+        messages.error(request, 'No tienes permiso para realizar esta acción.')
+        return redirect('empleado_dashboard')
+    
+    asignacion = get_object_or_404(AsignacionEquipo, id=asignacion_id)
+    
+    if request.method == 'POST':
+        form = DevolucionEquipoForm(request.POST, instance=asignacion)
+        if form.is_valid():
+            asignacion = form.save()
+            
+            # Actualizar estado del equipo
+            equipo = asignacion.equipo
+            equipo.estado = 'DISPONIBLE'
+            equipo.save()
+            
+            messages.success(request, f'Devolución de equipo {equipo.codigo_inventario} registrada correctamente.')
+            return redirect('inventario_equipos')
+    else:
+        form = DevolucionEquipoForm(instance=asignacion)
+    
+    context = {
+        'perfil': perfil,
+        'asignacion': asignacion,
+        'form': form,
+    }
+    return render(request, 'empleados/sistemas/devolver_equipo.html', context)
 
 
 # === VISTAS DE ERROR ===

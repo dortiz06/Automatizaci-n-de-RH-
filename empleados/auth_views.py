@@ -69,6 +69,8 @@ def logout_view(request):
 @login_required
 def perfil_usuario(request):
     """Vista del perfil del usuario actual"""
+    from .models import AsignacionEquipo
+    
     try:
         perfil = Perfil.objects.get(usuario=request.user)
         tiene_perfil = True
@@ -78,6 +80,14 @@ def perfil_usuario(request):
     
     # Obtener grupos del usuario para mostrar roles
     grupos = request.user.groups.all()
+    
+    # Equipos asignados
+    equipos_asignados = None
+    if perfil:
+        equipos_asignados = AsignacionEquipo.objects.filter(
+            empleado=perfil,
+            fecha_devolucion__isnull=True
+        ).select_related('equipo', 'equipo__categoria')
     
     # Variables para el template
     es_rh = perfil.es_rh() if perfil else False
@@ -92,6 +102,7 @@ def perfil_usuario(request):
         'es_rh': es_rh,
         'es_jefe': es_jefe,
         'es_empleado': es_empleado,
+        'equipos_asignados': equipos_asignados,
     }
     
     return render(request, 'empleados/perfil_usuario.html', context)

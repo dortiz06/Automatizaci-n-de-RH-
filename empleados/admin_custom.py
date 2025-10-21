@@ -3,7 +3,7 @@ from django.utils.html import format_html
 from django.urls import reverse
 from django.utils.safestring import mark_safe
 from django.db.models import Q
-from .models import Perfil, Departamento, SolicitudVacaciones, ConfiguracionSistema
+from .models import Perfil, Departamento, SolicitudVacaciones, ConfiguracionSistema, Ticket, Equipo, AsignacionEquipo, CategoriaEquipo
 from datetime import date, timedelta
 
 
@@ -240,6 +240,147 @@ class ConfiguracionSistemaAdmin(admin.ModelAdmin):
     
     list_display = ['nombre', 'valor', 'descripcion']
     search_fields = ['nombre', 'descripcion']
+
+
+# ===================================================================
+# ADMIN DE TICKETS Y EQUIPOS
+# ===================================================================
+
+@admin.register(CategoriaEquipo)
+class CategoriaEquipoAdmin(admin.ModelAdmin):
+    """Admin para categorías de equipos"""
+    
+    list_display = ['nombre', 'descripcion', 'activo']
+    list_filter = ['activo']
+    search_fields = ['nombre', 'descripcion']
+
+
+@admin.register(Equipo)
+class EquipoAdmin(admin.ModelAdmin):
+    """Admin para equipos tecnológicos"""
+    
+    list_display = [
+        'codigo_inventario', 'categoria', 'marca', 'modelo', 
+        'numero_serie', 'estado', 'empleado_asignado_display', 'fecha_adquisicion'
+    ]
+    list_filter = ['estado', 'categoria', 'fecha_adquisicion']
+    search_fields = ['codigo_inventario', 'numero_serie', 'marca', 'modelo']
+    readonly_fields = ['fecha_creacion', 'fecha_actualizacion']
+    
+    fieldsets = (
+        ('Información Básica', {
+            'fields': ('categoria', 'marca', 'modelo', 'numero_serie', 'codigo_inventario')
+        }),
+        ('Estado y Fechas', {
+            'fields': ('estado', 'fecha_adquisicion')
+        }),
+        ('Observaciones', {
+            'fields': ('observaciones',)
+        }),
+        ('Auditoría', {
+            'fields': ('fecha_creacion', 'fecha_actualizacion'),
+            'classes': ('collapse',)
+        }),
+    )
+    
+    def empleado_asignado_display(self, obj):
+        """Muestra el empleado al que está asignado el equipo"""
+        empleado = obj.empleado_asignado
+        if empleado:
+            return format_html(
+                '<span class="badge badge-success">{}</span>',
+                empleado.nombre_completo
+            )
+        return format_html('<span class="badge badge-secondary">No asignado</span>')
+    empleado_asignado_display.short_description = 'Asignado A'
+
+
+@admin.register(AsignacionEquipo)
+class AsignacionEquipoAdmin(admin.ModelAdmin):
+    """Admin para asignaciones de equipos"""
+    
+    list_display = [
+        'equipo', 'empleado', 'fecha_asignacion', 'fecha_devolucion',
+        'estado_asignacion', 'asignado_por'
+    ]
+    list_filter = ['fecha_asignacion', 'fecha_devolucion']
+    search_fields = [
+        'equipo__codigo_inventario', 'empleado__usuario__first_name',
+        'empleado__usuario__last_name'
+    ]
+    readonly_fields = ['fecha_creacion', 'fecha_actualizacion']
+    
+    fieldsets = (
+        ('Asignación', {
+            'fields': ('equipo', 'empleado', 'fecha_asignacion', 'fecha_devolucion')
+        }),
+        ('Condiciones', {
+            'fields': ('condicion_entrega', 'condicion_devolucion')
+        }),
+        ('Información Adicional', {
+            'fields': ('observaciones', 'asignado_por')
+        }),
+        ('Auditoría', {
+            'fields': ('fecha_creacion', 'fecha_actualizacion'),
+            'classes': ('collapse',)
+        }),
+    )
+    
+    def estado_asignacion(self, obj):
+        """Muestra si la asignación está activa o no"""
+        if obj.esta_activa:
+            return format_html('<span class="badge badge-success">Activa</span>')
+        return format_html('<span class="badge badge-secondary">Devuelto</span>')
+    estado_asignacion.short_description = 'Estado'
+
+
+@admin.register(Ticket)
+class TicketAdmin(admin.ModelAdmin):
+    """Admin para tickets de soporte"""
+    
+    list_display = [
+        'codigo', 'empleado', 'tipo', 'prioridad', 'estado',
+        'asignado_a', 'fecha_creacion', 'fecha_resolucion'
+    ]
+    list_filter = ['estado', 'tipo', 'prioridad', 'fecha_creacion']
+    search_fields = ['codigo', 'descripcion', 'empleado__usuario__first_name', 'empleado__usuario__last_name']
+    readonly_fields = ['codigo', 'fecha_creacion', 'fecha_actualizacion', 'tiempo_respuesta_display', 'tiempo_resolucion_display']
+    
+    fieldsets = (
+        ('Información del Ticket', {
+            'fields': ('codigo', 'empleado', 'tipo', 'prioridad', 'estado')
+        }),
+        ('Detalles del Problema', {
+            'fields': ('area', 'dispositivo', 'descripcion')
+        }),
+        ('Asignación y Resolución', {
+            'fields': ('asignado_a', 'solucion')
+        }),
+        ('Fechas', {
+            'fields': (
+                'fecha_creacion', 'fecha_asignacion', 'fecha_resolucion',
+                'fecha_actualizacion', 'tiempo_respuesta_display', 'tiempo_resolucion_display'
+            )
+        }),
+    )
+    
+    def tiempo_respuesta_display(self, obj):
+        """Muestra el tiempo de respuesta formateado"""
+        tiempo = obj.tiempo_respuesta
+        if tiempo:
+            horas = tiempo.total_seconds() / 3600
+            return f"{horas:.2f} horas"
+        return "-"
+    tiempo_respuesta_display.short_description = 'Tiempo de Respuesta'
+    
+    def tiempo_resolucion_display(self, obj):
+        """Muestra el tiempo de resolución formateado"""
+        tiempo = obj.tiempo_resolucion
+        if tiempo:
+            horas = tiempo.total_seconds() / 3600
+            return f"{horas:.2f} horas"
+        return "-"
+    tiempo_resolucion_display.short_description = 'Tiempo de Resolución'
 
 
 # Personalizar el admin de Django

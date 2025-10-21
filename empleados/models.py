@@ -12,6 +12,7 @@ class Perfil(models.Model):
         ('EMPLEADO', 'Empleado'),
         ('JEFE_AREA', 'Jefe de Área'), 
         ('RH', 'Recursos Humanos'),
+        ('SISTEMAS', 'Sistemas/IT'),
         ('ADMIN', 'Administrador'),
     ]
     
@@ -211,6 +212,9 @@ class Perfil(models.Model):
     
     def es_admin(self):
         return self.tipo_perfil == 'ADMIN'
+    
+    def es_sistemas(self):
+        return self.tipo_perfil == 'SISTEMAS'
     
     def es_empleado(self):
         return self.tipo_perfil == 'EMPLEADO'
@@ -572,6 +576,186 @@ class ConfiguracionSistema(models.Model):
     def __str__(self):
         return f"{self.nombre}: {self.valor}"
 
+
+# ===================================================================
+# MODELOS DE GESTIÓN DE EQUIPOS Y TICKETS IT
+# ===================================================================
+
+class CategoriaEquipo(models.Model):
+    """Categorías de equipos/dispositivos tecnológicos"""
+    nombre = models.CharField(max_length=50, unique=True, verbose_name="Nombre")
+    descripcion = models.TextField(blank=True, verbose_name="Descripción")
+    activo = models.BooleanField(default=True, verbose_name="Activo")
+    
+    class Meta:
+        verbose_name = "Categoría de Equipo"
+        verbose_name_plural = "Categorías de Equipos"
+        ordering = ['nombre']
+    
+    def __str__(self):
+        return self.nombre
+
+
+class Equipo(models.Model):
+    """Inventario de equipos tecnológicos"""
+    ESTADOS_EQUIPO = [
+        ('DISPONIBLE', 'Disponible'),
+        ('ASIGNADO', 'Asignado'),
+        ('EN_REPARACION', 'En Reparación'),
+        ('DADO_DE_BAJA', 'Dado de Baja'),
+    ]
+    
+    categoria = models.ForeignKey(CategoriaEquipo, on_delete=models.PROTECT, verbose_name="Categoría")
+    marca = models.CharField(max_length=50, verbose_name="Marca")
+    modelo = models.CharField(max_length=100, verbose_name="Modelo")
+    numero_serie = models.CharField(max_length=100, unique=True, verbose_name="Número de Serie")
+    codigo_inventario = models.CharField(max_length=50, unique=True, verbose_name="Código de Inventario")
+    estado = models.CharField(max_length=20, choices=ESTADOS_EQUIPO, default='DISPONIBLE', verbose_name="Estado")
+    fecha_adquisicion = models.DateField(verbose_name="Fecha de Adquisición")
+    observaciones = models.TextField(blank=True, verbose_name="Observaciones")
+    
+    # Auditoría
+    fecha_creacion = models.DateTimeField(auto_now_add=True)
+    fecha_actualizacion = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        verbose_name = "Equipo"
+        verbose_name_plural = "Equipos"
+        ordering = ['-fecha_adquisicion']
+    
+    def __str__(self):
+        return f"{self.categoria.nombre} - {self.marca} {self.modelo} ({self.codigo_inventario})"
+    
+    @property
+    def asignacion_actual(self):
+        """Retorna la asignación activa si existe"""
+        return self.asignaciones.filter(fecha_devolucion__isnull=True).first()
+    
+    @property
+    def empleado_asignado(self):
+        """Retorna el empleado al que está asignado actualmente"""
+        asignacion = self.asignacion_actual
+        return asignacion.empleado if asignacion else None
+
+
+class AsignacionEquipo(models.Model):
+    """Historial de asignaciones de equipos a empleados"""
+    equipo = models.ForeignKey(Equipo, on_delete=models.CASCADE, related_name='asignaciones', verbose_name="Equipo")
+    empleado = models.ForeignKey(Perfil, on_delete=models.CASCADE, related_name='equipos_asignados', verbose_name="Empleado")
+    fecha_asignacion = models.DateField(verbose_name="Fecha de Asignación")
+    fecha_devolucion = models.DateField(null=True, blank=True, verbose_name="Fecha de Devolución")
+    condicion_entrega = models.CharField(max_length=200, blank=True, verbose_name="Condición al Entregar")
+    condicion_devolucion = models.CharField(max_length=200, blank=True, verbose_name="Condición al Devolver")
+    observaciones = models.TextField(blank=True, verbose_name="Observaciones")
+    asignado_por = models.ForeignKey(Perfil, on_delete=models.SET_NULL, null=True, related_name='asignaciones_realizadas', verbose_name="Asignado Por")
+    
+    # Auditoría
+    fecha_creacion = models.DateTimeField(auto_now_add=True)
+    fecha_actualizacion = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        verbose_name = "Asignación de Equipo"
+        verbose_name_plural = "Asignaciones de Equipos"
+        ordering = ['-fecha_asignacion']
+    
+    def __str__(self):
+        estado = "Activa" if not self.fecha_devolucion else f"Devuelto el {self.fecha_devolucion}"
+        return f"{self.equipo.codigo_inventario} → {self.empleado.nombre_completo} ({estado})"
+    
+    @property
+    def esta_activa(self):
+        """Verifica si la asignación está activa"""
+        return self.fecha_devolucion is None
+
+
+class Ticket(models.Model):
+    """Sistema de tickets de soporte técnico"""
+    TIPOS_TICKET = [
+        ('HARDWARE', 'Hardware'),
+        ('SOFTWARE', 'Software'),
+        ('RED', 'Red/Conectividad'),
+        ('ACCESO', 'Acceso/Permisos'),
+        ('OTRO', 'Otro'),
+    ]
+    
+    PRIORIDADES = [
+        ('BAJA', 'Baja'),
+        ('MEDIA', 'Media'),
+        ('ALTA', 'Alta'),
+        ('URGENTE', 'Urgente'),
+    ]
+    
+    ESTADOS = [
+        ('PENDIENTE', 'Pendiente'),
+        ('EN_PROCESO', 'En Proceso'),
+        ('RESUELTO', 'Resuelto'),
+        ('CANCELADO', 'Cancelado'),
+    ]
+    
+    # Información básica
+    codigo = models.CharField(max_length=20, unique=True, verbose_name="Código", editable=False)
+    empleado = models.ForeignKey(Perfil, on_delete=models.CASCADE, related_name='tickets_creados', verbose_name="Solicitante")
+    tipo = models.CharField(max_length=20, choices=TIPOS_TICKET, verbose_name="Tipo")
+    area = models.CharField(max_length=100, blank=True, verbose_name="Área")
+    dispositivo = models.CharField(max_length=100, blank=True, verbose_name="Dispositivo Afectado")
+    prioridad = models.CharField(max_length=20, choices=PRIORIDADES, default='MEDIA', verbose_name="Prioridad")
+    descripcion = models.TextField(verbose_name="Descripción del Problema")
+    estado = models.CharField(max_length=20, choices=ESTADOS, default='PENDIENTE', verbose_name="Estado")
+    
+    # Asignación y resolución
+    asignado_a = models.ForeignKey(Perfil, on_delete=models.SET_NULL, null=True, blank=True, 
+                                   related_name='tickets_asignados', verbose_name="Asignado A")
+    solucion = models.TextField(blank=True, verbose_name="Solución Aplicada")
+    
+    # Fechas
+    fecha_creacion = models.DateTimeField(auto_now_add=True, verbose_name="Fecha de Creación")
+    fecha_asignacion = models.DateTimeField(null=True, blank=True, verbose_name="Fecha de Asignación")
+    fecha_resolucion = models.DateTimeField(null=True, blank=True, verbose_name="Fecha de Resolución")
+    fecha_actualizacion = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        verbose_name = "Ticket"
+        verbose_name_plural = "Tickets"
+        ordering = ['-fecha_creacion']
+    
+    def __str__(self):
+        return f"{self.codigo} - {self.empleado.nombre_completo} ({self.get_estado_display()})"
+    
+    def save(self, *args, **kwargs):
+        if not self.codigo:
+            # Generar código único TKT-YYYYMMDD-XXX
+            from django.utils import timezone
+            today = timezone.now().date()
+            prefix = f"TKT-{today.strftime('%Y%m%d')}"
+            last_ticket = Ticket.objects.filter(codigo__startswith=prefix).order_by('-codigo').first()
+            if last_ticket:
+                last_num = int(last_ticket.codigo.split('-')[-1])
+                new_num = last_num + 1
+            else:
+                new_num = 1
+            self.codigo = f"{prefix}-{new_num:03d}"
+        super().save(*args, **kwargs)
+    
+    @property
+    def tiempo_respuesta(self):
+        """Calcula el tiempo desde creación hasta asignación"""
+        if self.fecha_asignacion:
+            delta = self.fecha_asignacion - self.fecha_creacion
+            return delta
+        return None
+    
+    @property
+    def tiempo_resolucion(self):
+        """Calcula el tiempo desde creación hasta resolución"""
+        if self.fecha_resolucion:
+            delta = self.fecha_resolucion - self.fecha_creacion
+            return delta
+        return None
+
+
+# ===================================================================
+# SEÑALES
+# ===================================================================
 
 # Señales para mantener sincronización con User model
 from django.db.models.signals import post_save
